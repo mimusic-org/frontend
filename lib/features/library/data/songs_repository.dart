@@ -1,0 +1,163 @@
+import 'package:dio/dio.dart';
+
+import '../../../shared/models/song.dart';
+import 'songs_api.dart';
+
+/// 歌曲仓库，封装 API 调用并添加错误处理
+class SongsRepository {
+  final SongsApi songsApi;
+
+  SongsRepository(this.songsApi);
+
+  /// 获取歌曲列表
+  Future<SongListResponse> getSongs({
+    String? type,
+    String? keyword,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      return await songsApi.getSongs(
+        type: type,
+        keyword: keyword,
+        limit: limit,
+        offset: offset,
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 获取单首歌曲
+  Future<Song> getSong(int id) async {
+    try {
+      return await songsApi.getSong(id);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 创建网络歌曲
+  Future<Song> createRemoteSong({
+    required String title,
+    String? artist,
+    String? album,
+    required String url,
+    String? coverUrl,
+    double? duration,
+  }) async {
+    try {
+      return await songsApi.createRemoteSong(
+        title: title,
+        artist: artist,
+        album: album,
+        url: url,
+        coverUrl: coverUrl,
+        duration: duration,
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 创建电台歌曲
+  Future<Song> createRadioSong({
+    required String title,
+    String? artist,
+    required String url,
+    String? coverUrl,
+    bool isLive = false,
+  }) async {
+    try {
+      return await songsApi.createRadioSong(
+        title: title,
+        artist: artist,
+        url: url,
+        coverUrl: coverUrl,
+        isLive: isLive,
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 更新歌曲
+  Future<Song> updateSong(
+    int id, {
+    String? title,
+    String? artist,
+    String? album,
+    String? url,
+    String? coverUrl,
+    double? duration,
+    bool? isLive,
+  }) async {
+    try {
+      return await songsApi.updateSong(
+        id,
+        title: title,
+        artist: artist,
+        album: album,
+        url: url,
+        coverUrl: coverUrl,
+        duration: duration,
+        isLive: isLive,
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 删除歌曲
+  Future<void> deleteSong(int id) async {
+    try {
+      await songsApi.deleteSong(id);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 清理无效歌曲
+  Future<int> cleanSongs() async {
+    try {
+      return await songsApi.cleanSongs();
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 处理 Dio 错误
+  Exception _handleError(DioException e) {
+    final response = e.response;
+    if (response != null) {
+      final data = response.data;
+      if (data is Map<String, dynamic> && data.containsKey('error')) {
+        return Exception(data['error']);
+      }
+      switch (response.statusCode) {
+        case 400:
+          return Exception('请求参数错误');
+        case 401:
+          return Exception('未授权，请重新登录');
+        case 403:
+          return Exception('没有权限执行此操作');
+        case 404:
+          return Exception('歌曲不存在');
+        case 500:
+          return Exception('服务器错误，请稍后重试');
+        default:
+          return Exception('请求失败：${response.statusCode}');
+      }
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return Exception('网络连接超时，请检查网络');
+      case DioExceptionType.connectionError:
+        return Exception('网络连接失败，请检查网络');
+      default:
+        return Exception('网络错误：${e.message}');
+    }
+  }
+}

@@ -1,0 +1,35 @@
+# Flutter 构建产物
+build/
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# 系统文件
+.DS_Store
+*.swp
+*.swo
+*~
+
+# 文档
+*.md
+
+# 测试覆盖率
+coverage/
+
+# Android 调试产物
+android/app/debug
+android/app/profile
+android/app/release
+
+# macOS/iOS 缓存（Docker 中不需要）
+macos/Flutter/ephemeral/
+ios/.symlinks/
+ios/Pods/

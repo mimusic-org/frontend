@@ -1,0 +1,47 @@
+name: mimusic_flutter
+description: MiMusic - 跨平台音乐播放器
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+  flutter: '>=3.29.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # 状态管理
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  # 路由
+  go_router: ^14.8.1
+  # HTTP
+  dio: ^5.7.0
+  # 音频播放
+  just_audio: ^0.9.42
+  audio_service: ^0.18.17
+  audio_session: ^0.1.25
+  # 本地存储
+  shared_preferences: ^2.3.4
+  flutter_secure_storage: ^9.2.3
+  # 图片缓存
+  cached_network_image: ^3.4.1
+  # UI
+  google_fonts: ^6.2.1
+  # 工具
+  intl: ^0.19.0
+  url_launcher: ^6.3.1
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  riverpod_generator: ^2.6.3
+  build_runner: ^2.4.14
+  json_serializable: ^6.9.3
+  custom_lint: ^0.7.2
+  riverpod_lint: ^2.6.3
+
+flutter:
+  uses-material-design: true

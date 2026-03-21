@@ -1,0 +1,238 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# 同一 ref 只保留最新一次运行
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.29.3'
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================
+  # 构建矩阵
+  # ============================================================
+  build-web:
+    name: Web (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mode: [standalone, embedded]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release --no-web-resources-cdn --dart-define=DEPLOY_MODE=${{ matrix.mode }}
+      - name: Package
+        run: |
+          cd build/web
+          tar czf "$GITHUB_WORKSPACE/mimusic-web-${{ matrix.mode }}.tar.gz" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimusic-web-${{ matrix.mode }}
+          path: mimusic-web-${{ matrix.mode }}.tar.gz
+
+  build-linux:
+    name: Linux (x64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libglu1-mesa libstdc++-12-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package
+        run: |
+          cd build/linux/x64/release/bundle
+          tar czf "$GITHUB_WORKSPACE/mimusic-linux-x64.tar.gz" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimusic-linux-x64
+          path: mimusic-linux-x64.tar.gz
+
+  build-windows:
+    name: Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath mimusic-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimusic-windows-x64
+          path: mimusic-windows-x64.zip
+
+  build-macos:
+    name: macOS (Universal)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Package
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r -y "$GITHUB_WORKSPACE/mimusic-macos.zip" *.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimusic-macos
+          path: mimusic-macos.zip
+
+  build-android:
+    name: Android (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release --split-per-abi
+      - name: Collect APKs
+        run: |
+          mkdir -p apk-output
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk apk-output/mimusic-arm64-v8a.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk apk-output/mimusic-armeabi-v7a.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk apk-output/mimusic-x86_64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimusic-android-apk
+          path: apk-output/*.apk
+
+  build-ios:
+    name: iOS (No Codesign)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - name: Package
+        run: |
+          cd build/ios/iphoneos
+          tar czf "$GITHUB_WORKSPACE/mimusic-ios-nosign.tar.gz" *.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimusic-ios
+          path: mimusic-ios-nosign.tar.gz
+
+  # ============================================================
+  # 发布 Release
+  # ============================================================
+  release:
+    name: Create Release
+    needs:
+      - build-web
+      - build-linux
+      - build-windows
+      - build-macos
+      - build-android
+      - build-ios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine release info
+        id: release_info
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "name=Release $TAG" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            echo "tag=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "name=Dev Build ($BRANCH)" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p final-assets
+          find release-assets -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.apk' \) -exec cp {} final-assets/ \;
+          echo "=== Release Assets ==="
+          ls -lh final-assets/
+
+      - name: Delete existing release (for branch builds)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ steps.release_info.outputs.tag }}" --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS=(
+            "${{ steps.release_info.outputs.tag }}"
+            --title "${{ steps.release_info.outputs.name }}"
+            --generate-notes
+          )
+
+          if [[ "${{ steps.release_info.outputs.prerelease }}" == "true" ]]; then
+            ARGS+=(--prerelease)
+          fi
+
+          if [[ "${{ steps.release_info.outputs.make_latest }}" == "true" ]]; then
+            ARGS+=(--latest)
+          fi
+
+          # 对于 tag 触发，直接使用已有 tag；对于分支触发，需要指定 target
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            ARGS+=(--target "${{ github.sha }}")
+          fi
+
+          gh release create "${ARGS[@]}" final-assets/*

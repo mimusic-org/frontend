@@ -1,0 +1,141 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/utils/cover_url.dart';
+
+import '../providers/player_provider.dart';
+import 'mobile_player.dart';
+import 'play_controls.dart';
+import 'progress_bar.dart';
+
+/// 移动端迷你播放器（底部小条）
+class MiniPlayer extends ConsumerWidget {
+  final VoidCallback? onTap; // 点击展开全屏
+
+  const MiniPlayer({
+    super.key,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(playerStateProvider);
+    final notifier = ref.read(playerStateProvider.notifier);
+    final theme = Theme.of(context);
+
+    // 无歌曲时不显示
+    if (!state.hasSong) {
+      debugPrint('[Player] MiniPlayer: no song, hiding');
+      return const SizedBox.shrink();
+    }
+
+    final song = state.currentSong!;
+
+    // 固定高度: 进度条 2px + 主体 64px = 66px
+    return SizedBox(
+      height: 66,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 迷你进度条（高度 2px）
+          PlayerProgressBar(
+            position: state.currentTime,
+            duration: state.duration,
+            onSeek: notifier.seek,
+            mini: true,
+          ),
+          // 主体内容（高度 64px）
+          Material(
+            color: theme.colorScheme.surface,
+            elevation: 8,
+            child: InkWell(
+              onTap: onTap ?? () {
+                debugPrint('[Player] MiniPlayer tapped, showing MobilePlayer');
+                MobilePlayer.show(context);
+              },
+              child: SizedBox(
+                height: 64,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      // 封面
+                      _buildCover(context, CoverUrl.buildCoverUrl(
+                        coverUrl: song.coverUrl,
+                        coverPath: song.coverPath,
+                      )),
+                      const SizedBox(width: 12),
+                      // 标题和艺术家
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              song.title,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              song.artist ?? '未知艺术家',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 播放/暂停按钮
+                      CompactPlayButton(
+                        isPlaying: state.isPlaying,
+                        isBuffering: state.isBuffering,
+                        onPlay: notifier.togglePlay,
+                        onPause: notifier.togglePlay,
+                        size: 44,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCover(BuildContext context, String? coverUrl) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: coverUrl != null && coverUrl.isNotEmpty
+          ? Image.network(
+              coverUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _buildPlaceholder(theme),
+            )
+          : _buildPlaceholder(theme),
+    );
+  }
+
+  Widget _buildPlaceholder(ThemeData theme) {
+    return Icon(
+      Icons.music_note_rounded,
+      size: 24,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+  }
+}
