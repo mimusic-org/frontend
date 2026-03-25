@@ -88,6 +88,8 @@ jobs:
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
           chmod +x /tmp/appimagetool
           sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
+          # GitHub Actions 容器不支持 FUSE，设置此环境变量让 AppImage 工具以 extract 模式运行
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $GITHUB_ENV
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}

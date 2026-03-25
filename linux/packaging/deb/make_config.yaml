@@ -5,6 +5,7 @@ maintainer:
   email: dev@mimusic.org
 priority: optional
 section: sound
+installed_size: 102400
 icon: assets/icons/app_icon.png
 keywords:
   - Music
