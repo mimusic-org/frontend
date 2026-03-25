@@ -169,4 +169,4 @@ scripts/
 
 ## 许可证
 
-[MIT License](LICENSE)
+[Apache-2.0 license](LICENSE)
