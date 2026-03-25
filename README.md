@@ -18,7 +18,6 @@ MiMusic 跨平台音乐播放器，基于 Flutter 构建，支持 6 个目标平
 | 🪟 **Windows** | [mimusic-windows-x64.zip](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-windows-x64.zip) | x64 便携版 |
 | | [mimusic-windows-x64.msi](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-windows-x64.msi) | x64 安装版 |
 | 🍎 **macOS** | [mimusic-macos.dmg](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-macos.dmg) | Universal DMG (Intel/Apple Silicon) |
-| | [mimusic-macos.pkg](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-macos.pkg) | Universal PKG 安装包 |
 | | [mimusic-macos.zip](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-macos.zip) | Universal App 压缩包 |
 | 🤖 **Android** | [mimusic-arm64-v8a.apk](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-arm64-v8a.apk) | ARM64 设备（推荐） |
 | | [mimusic-armeabi-v7a.apk](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-armeabi-v7a.apk) | ARMv7 设备 |
