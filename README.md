@@ -13,10 +13,11 @@ MiMusic 跨平台音乐播放器，基于 Flutter 构建，支持 6 个目标平
 | 🌐 **Web (standalone)** | [mimusic-web-standalone.tar.gz](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-web-standalone.tar.gz) | 独立部署版，支持配置后端地址 |
 | 🌐 **Web (embedded)** | [mimusic-web-embedded.tar.gz](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-web-embedded.tar.gz) | 嵌入 Go 后端同域部署 |
 | 🐧 **Linux** | [mimusic-linux-x64.tar.gz](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-linux-x64.tar.gz) | x64 桌面版 |
-| | [mimusic-linux-amd64.deb](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-linux-amd64.deb) | Debian/Ubuntu x64 |
-| | [mimusic-linux-x86_64.rpm](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-linux-x86_64.rpm) | Fedora/RHEL/CentOS x64 |
+| | [mimusic-linux-x64.deb](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-linux-x64.deb) | Debian/Ubuntu x64 |
+| | [mimusic-linux-x64.rpm](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-linux-x64.rpm) | Fedora/RHEL/CentOS x64 |
+| | [mimusic-linux-x64.AppImage](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-linux-x64.AppImage) | 免安装可执行文件 |
 | 🪟 **Windows** | [mimusic-windows-x64.zip](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-windows-x64.zip) | x64 便携版 |
-| | [mimusic-windows-x64.msi](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-windows-x64.msi) | x64 安装版 |
+| | [mimusic-windows-x64.msix](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-windows-x64.msix) | x64 安装版 |
 | 🍎 **macOS** | [mimusic-macos.dmg](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-macos.dmg) | Universal DMG (Intel/Apple Silicon) |
 | | [mimusic-macos.zip](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-macos.zip) | Universal App 压缩包 |
 | 🤖 **Android** | [mimusic-arm64-v8a.apk](https://github.com/mimusic-org/frontend/releases/latest/download/mimusic-arm64-v8a.apk) | ARM64 设备（推荐） |
