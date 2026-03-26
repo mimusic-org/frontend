@@ -1,6 +1,6 @@
 display_name: MiMusic
 msix_version: 1.0.0.0
-store: true
+store: "true"
 
 # Microsoft Store 发布必需配置
 # 以下字段需要与 Microsoft Store 仪表板中注册的信息匹配
