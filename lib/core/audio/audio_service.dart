@@ -196,6 +196,10 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
       // 提前更新 mediaItem，确保通知栏在 Service 重建时能读取到正确的元数据。
       _updateNowPlaying(song);
 
+      // 先停止当前播放，确保 Web 平台上 HTML5 Audio 元素正确释放旧音频源
+      // 不调用 super.stop() 以避免影响 audio_service 的前台 Service
+      await _player.stop();
+
       debugPrint('[Player] MiMusicAudioHandler: setting audio source');
       await _player.setAudioSource(source);
 
