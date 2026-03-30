@@ -35,18 +35,15 @@ class MiniPlayer extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 迷你进度条（高度 2px）
-          PlayerProgressBar(
-            position: state.currentTime,
-            duration: state.duration,
-            onSeek: notifier.seek,
-            mini: true,
-          ),
-          // 顶部分割线
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          // 迷你进度条（高度精确控制为 2px）
+          SizedBox(
+            height: 2,
+            child: PlayerProgressBar(
+              position: state.currentTime,
+              duration: state.duration,
+              onSeek: notifier.seek,
+              mini: true,
+            ),
           ),
           // 主体内容（高度 64px）
           Material(
