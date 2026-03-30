@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart' as ja;
 
 import '../../config/app_config.dart';
 import '../../shared/models/song.dart';
+import '../storage/secure_storage.dart';
 import '../utils/cover_url.dart';
 import '../utils/encode.dart';
 import '../utils/proxy_url.dart';
@@ -179,7 +180,23 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
         source = ja.AudioSource.uri(uri);
       } else if (song.url != null && song.url!.isNotEmpty) {
         // 网络歌曲或电台：Web 平台通过后端代理转发，解决 CORS 限制
-        final songUrl = ProxyUrl.buildProxyUrl(song.url!);
+        String songUrl = song.url!;
+
+        // 处理相对路径（本服务器的 API 路径，如 /api/v1/plugin/...）
+        // 原生平台无法携带 Authorization Header，需拼接 baseUrl 并附加 access_token
+        if (songUrl.startsWith('/')) {
+          final token =
+              accessToken ?? SecureStorageService.cachedAccessToken ?? '';
+          final separator = songUrl.contains('?') ? '&' : '?';
+          songUrl =
+              '${AppConfig.baseUrl}$songUrl${separator}access_token=$token';
+          debugPrint(
+            '[Player] MiMusicAudioHandler: server-relative url with token: $songUrl',
+          );
+        } else {
+          songUrl = ProxyUrl.buildProxyUrl(songUrl);
+        }
+
         debugPrint('[Player] MiMusicAudioHandler: network song, url: $songUrl');
         source = ja.AudioSource.uri(Uri.parse(songUrl));
       } else {
