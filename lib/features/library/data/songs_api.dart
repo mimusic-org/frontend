@@ -45,9 +45,7 @@ class SongsApi {
 
   /// 批量创建网络歌曲
   /// 返回 {songs: List<Song>, count: int}
-  Future<List<Song>> createRemoteSongs(
-    List<Map<String, dynamic>> items,
-  ) async {
+  Future<List<Song>> createRemoteSongs(List<Map<String, dynamic>> items) async {
     final response = await dio.post<Map<String, dynamic>>(
       '${AppConfig.apiPrefix}/songs/remote',
       data: items,
@@ -79,9 +77,7 @@ class SongsApi {
   }
 
   /// 批量创建电台歌曲
-  Future<List<Song>> createRadioSongs(
-    List<Map<String, dynamic>> items,
-  ) async {
+  Future<List<Song>> createRadioSongs(List<Map<String, dynamic>> items) async {
     final response = await dio.post<Map<String, dynamic>>(
       '${AppConfig.apiPrefix}/songs/radio',
       data: items,
@@ -96,6 +92,7 @@ class SongsApi {
     String? artist,
     required String url,
     String? coverUrl,
+    bool isLive = false,
   }) async {
     final songs = await createRadioSongs([
       {
@@ -103,6 +100,7 @@ class SongsApi {
         'artist': artist,
         'url': url,
         'cover_url': coverUrl,
+        'is_live': isLive,
       },
     ]);
     return songs.first;
