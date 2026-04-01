@@ -451,13 +451,12 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
           tooltip: '多选',
           onPressed: _enterSelectMode,
         ),
-      // 编辑按钮（非内置歌单时显示）
-      if (!isBuiltIn)
-        IconButton(
-          icon: const Icon(Icons.edit),
-          tooltip: '编辑歌单',
-          onPressed: () => _showEditDialog(playlist),
-        ),
+      // 编辑按钮
+      IconButton(
+        icon: const Icon(Icons.edit),
+        tooltip: isBuiltIn ? '修改封面' : '编辑歌单',
+        onPressed: () => _showEditDialog(playlist),
+      ),
       // 更多操作
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
@@ -1214,7 +1213,7 @@ class _PlaylistEditDialogState extends ConsumerState<_PlaylistEditDialog> {
             widget.playlist.coverUrl?.isNotEmpty == true);
 
     return AlertDialog(
-      title: const Text('编辑歌单'),
+      title: Text(widget.playlist.isBuiltIn ? '修改封面' : '编辑歌单'),
       content: SingleChildScrollView(
         child: SizedBox(
           width: 320,
@@ -1274,7 +1273,7 @@ class _PlaylistEditDialogState extends ConsumerState<_PlaylistEditDialog> {
                   labelText: '歌单名称',
                   border: OutlineInputBorder(),
                 ),
-                enabled: !_isSaving,
+                enabled: !_isSaving && !widget.playlist.isBuiltIn,
               ),
               const SizedBox(height: 16),
 
@@ -1286,7 +1285,7 @@ class _PlaylistEditDialogState extends ConsumerState<_PlaylistEditDialog> {
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
-                enabled: !_isSaving,
+                enabled: !_isSaving && !widget.playlist.isBuiltIn,
               ),
             ],
           ),

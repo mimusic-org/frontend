@@ -250,7 +250,7 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
       context: context,
       builder:
           (context) => _PlaylistFormDialog(
-            title: '编辑歌单',
+            title: playlist.isBuiltIn ? '修改封面' : '编辑歌单',
             initialName: playlist.name,
             initialDescription: playlist.description,
             initialType: playlist.type,
@@ -258,6 +258,7 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
             initialCoverUrl: playlist.coverUrl,
             playlistId: playlist.id,
             isEdit: true,
+            isBuiltIn: playlist.isBuiltIn,
           ),
     );
 
@@ -530,6 +531,7 @@ class _PlaylistFormDialog extends StatefulWidget {
   final String? initialCoverUrl;
   final int? playlistId;
   final bool isEdit;
+  final bool isBuiltIn;
 
   const _PlaylistFormDialog({
     required this.title,
@@ -540,6 +542,7 @@ class _PlaylistFormDialog extends StatefulWidget {
     this.initialCoverUrl,
     this.playlistId,
     this.isEdit = false,
+    this.isBuiltIn = false,
   });
 
   @override
@@ -723,6 +726,7 @@ class _PlaylistFormDialogState extends State<_PlaylistFormDialog> {
                     return null;
                   },
                   autofocus: !widget.isEdit,
+                  enabled: !widget.isBuiltIn,
                 ),
                 const SizedBox(height: 16),
 
@@ -735,6 +739,7 @@ class _PlaylistFormDialogState extends State<_PlaylistFormDialog> {
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
+                  enabled: !widget.isBuiltIn,
                 ),
                 const SizedBox(height: 16),
 
