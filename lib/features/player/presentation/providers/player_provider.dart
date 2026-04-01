@@ -10,6 +10,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../main.dart';
 import '../../../../shared/models/song.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../playlist/data/playlist_api.dart';
 import '../../../playlist/presentation/providers/playlist_provider.dart';
 import '../../domain/player_state.dart';
@@ -53,7 +54,34 @@ class PlayerNotifier extends Notifier<PlayerState> {
       _sleepTimer?.cancel();
       _sleepTimerCountdown?.cancel();
     });
+
+    // 从本地存储加载音量和播放模式设置
+    _loadPreferences();
+
     return PlayerState.initial;
+  }
+
+  /// 从本地存储加载播放器偏好设置
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await ref.read(appPreferencesProvider.future);
+      final volume = prefs.getVolume();
+      final playModeString = prefs.getPlayMode();
+      final playMode = PlayMode.fromString(playModeString);
+
+      debugPrint(
+        '[Player] Loaded preferences: volume=$volume, playMode=$playModeString',
+      );
+
+      // 更新状态
+      state = state.copyWith(volume: volume, playMode: playMode);
+
+      // 应用音量到音频播放器
+      await _audioHandler.setVolume(volume / 100);
+    } catch (e) {
+      debugPrint('[Player] Failed to load preferences: $e');
+      // 加载失败使用默认值
+    }
   }
 
   /// 初始化监听器
@@ -299,6 +327,15 @@ class PlayerNotifier extends Notifier<PlayerState> {
     final clampedVolume = volume.clamp(0.0, 100.0);
     state = state.copyWith(volume: clampedVolume, clearPreviousVolume: true);
     await _audioHandler.setVolume(clampedVolume / 100);
+
+    // 保存到本地存储
+    try {
+      final prefs = await ref.read(appPreferencesProvider.future);
+      await prefs.setVolume(clampedVolume);
+      debugPrint('[Player] Saved volume: $clampedVolume');
+    } catch (e) {
+      debugPrint('[Player] Failed to save volume: $e');
+    }
   }
 
   /// 切换静音
@@ -315,9 +352,18 @@ class PlayerNotifier extends Notifier<PlayerState> {
   }
 
   /// 设置播放模式
-  void setPlayMode(PlayMode mode) {
+  Future<void> setPlayMode(PlayMode mode) async {
     _playedIndices.clear();
     state = state.copyWith(playMode: mode);
+
+    // 保存到本地存储
+    try {
+      final prefs = await ref.read(appPreferencesProvider.future);
+      await prefs.setPlayMode(mode.toStorageString());
+      debugPrint('[Player] Saved playMode: ${mode.toStorageString()}');
+    } catch (e) {
+      debugPrint('[Player] Failed to save playMode: $e');
+    }
   }
 
   /// 从播放列表删除

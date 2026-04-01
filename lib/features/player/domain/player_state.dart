@@ -15,7 +15,41 @@ enum PlayMode {
   random,
 
   /// 单曲播放（播完停止）
-  singlePlay,
+  singlePlay;
+
+  /// 从字符串解析播放模式
+  static PlayMode fromString(String value) {
+    switch (value) {
+      case 'order':
+        return PlayMode.order;
+      case 'loop':
+        return PlayMode.loop;
+      case 'single':
+        return PlayMode.single;
+      case 'random':
+        return PlayMode.random;
+      case 'singlePlay':
+        return PlayMode.singlePlay;
+      default:
+        return PlayMode.order;
+    }
+  }
+
+  /// 转换为字符串（用于存储）
+  String toStorageString() {
+    switch (this) {
+      case PlayMode.order:
+        return 'order';
+      case PlayMode.loop:
+        return 'loop';
+      case PlayMode.single:
+        return 'single';
+      case PlayMode.random:
+        return 'random';
+      case PlayMode.singlePlay:
+        return 'singlePlay';
+    }
+  }
 }
 
 /// 播放器状态
@@ -52,6 +86,14 @@ class PlayerState {
 
   /// 初始状态
   static const PlayerState initial = PlayerState();
+
+  /// 从存储的偏好设置创建初始状态
+  static PlayerState fromPreferences({double? volume, PlayMode? playMode}) {
+    return PlayerState(
+      volume: volume ?? 50.0,
+      playMode: playMode ?? PlayMode.order,
+    );
+  }
 
   /// 是否有下一首
   bool get hasNext {

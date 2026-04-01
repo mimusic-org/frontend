@@ -6,6 +6,8 @@ class AppPreferences {
   static const _themeModeKey = 'theme_mode';
   static const _apiBaseUrlKey = 'api_base_url';
   static const _lastUsedDeviceKey = 'last_used_device';
+  static const _volumeKey = 'player_volume';
+  static const _playModeKey = 'player_play_mode';
 
   final SharedPreferences _prefs;
 
@@ -73,6 +75,28 @@ class AppPreferences {
   /// 清除最后使用的设备
   Future<bool> clearLastUsedDevice() {
     return _prefs.remove(_lastUsedDeviceKey);
+  }
+
+  /// 获取播放器音量 (0-100)
+  /// 返回存储的音量值，默认为 50
+  double getVolume() {
+    return _prefs.getDouble(_volumeKey) ?? 50.0;
+  }
+
+  /// 设置播放器音量 (0-100)
+  Future<bool> setVolume(double volume) {
+    return _prefs.setDouble(_volumeKey, volume);
+  }
+
+  /// 获取播放模式
+  /// 返回播放模式字符串，默认为 'order'
+  String getPlayMode() {
+    return _prefs.getString(_playModeKey) ?? 'order';
+  }
+
+  /// 设置播放模式
+  Future<bool> setPlayMode(String mode) {
+    return _prefs.setString(_playModeKey, mode);
   }
 
   /// 清除所有偏好设置
