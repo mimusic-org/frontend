@@ -163,7 +163,7 @@ class PlaylistDrawer extends ConsumerWidget {
     );
   }
 
-  /// 移除歌曲（带撤销）
+  /// 移除歌曲
   void _removeSong(
     BuildContext context,
     PlayerNotifier notifier,
@@ -175,12 +175,6 @@ class PlaylistDrawer extends ConsumerWidget {
       context,
       message: '已移除「${song.title}」',
       duration: const Duration(seconds: 2),
-      action: SnackBarAction(
-        label: '撤销',
-        onPressed: () {
-          notifier.insertToPlaylist(index, song);
-        },
-      ),
     );
   }
 

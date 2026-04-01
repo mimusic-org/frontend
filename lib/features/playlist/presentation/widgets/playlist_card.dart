@@ -47,13 +47,14 @@ class PlaylistCard extends StatelessWidget {
                   // 封面图
                   coverUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: coverUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              _buildPlaceholder(colorScheme),
-                          errorWidget: (context, url, error) =>
-                              _buildPlaceholder(colorScheme),
-                        )
+                        imageUrl: coverUrl,
+                        fit: BoxFit.cover,
+                        placeholder:
+                            (context, url) => _buildPlaceholder(colorScheme),
+                        errorWidget:
+                            (context, url, error) =>
+                                _buildPlaceholder(colorScheme),
+                      )
                       : _buildPlaceholder(colorScheme),
 
                   // 播放全部按钮（右下角）
@@ -108,47 +109,59 @@ class PlaylistCard extends StatelessWidget {
 
             // 歌单信息
             Expanded(
-              child: ClipRect(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 歌单名称
-                    Text(
-                      playlist.name,
-                      style: textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (playlist.description?.isNotEmpty == true) ...[
-                      const SizedBox(height: 2),
-                      // 歌单描述
-                      Text(
-                        playlist.description!,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxH = constraints.maxHeight;
+                    // 根据可用高度决定显示内容，避免溢出
+                    // titleSmall ~20px, bodySmall ~16px, label ~22px, spacing 2px
+                    final hasDesc = playlist.description?.isNotEmpty == true;
+                    final hasLabels = playlist.labels.isNotEmpty;
+                    final showDesc = hasDesc && maxH >= 40;
+                    final showLabels =
+                        hasLabels && maxH >= (showDesc ? 62 : 44);
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 歌单名称
+                        Text(
+                          playlist.name,
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    if (playlist.labels.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      // 标签
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        children: playlist.labels.map((label) {
-                          return _buildLabel(context, label);
-                        }).toList(),
-                      ),
-                    ],
-                  ],
-                ),
+                        if (showDesc) ...[
+                          const SizedBox(height: 2),
+                          // 歌单描述
+                          Text(
+                            playlist.description!,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (showLabels) ...[
+                          const SizedBox(height: 2),
+                          // 标签
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 2,
+                            children:
+                                playlist.labels.map((label) {
+                                  return _buildLabel(context, label);
+                                }).toList(),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -246,9 +259,7 @@ class PlaylistCard extends StatelessWidget {
                 ),
                 title: Text(
                   '删除',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
                 dense: true,
                 contentPadding: EdgeInsets.zero,

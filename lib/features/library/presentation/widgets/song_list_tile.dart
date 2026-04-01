@@ -14,6 +14,7 @@ class SongListTile extends ConsumerWidget {
   final int index;
   final bool isSelected;
   final bool isSelectionMode;
+  final bool isNarrow; // 窄屏模式（隐藏专辑列）
   final VoidCallback? onTap;
   final VoidCallback? onSelect;
   final VoidCallback? onDelete;
@@ -26,6 +27,7 @@ class SongListTile extends ConsumerWidget {
     required this.index,
     this.isSelected = false,
     this.isSelectionMode = false,
+    this.isNarrow = false,
     this.onTap,
     this.onSelect,
     this.onDelete,
@@ -35,11 +37,17 @@ class SongListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (context.isMobile) {
-      return _buildMobileLayout(context);
-    } else {
-      return _buildDesktopLayout(context);
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 使用实际可用宽度判断，而非屏幕宽度，避免在窄容器中溢出
+        if (context.isMobile ||
+            constraints.maxWidth < ResponsiveBreakpoints.tablet) {
+          return _buildMobileLayout(context);
+        } else {
+          return _buildDesktopLayout(context);
+        }
+      },
+    );
   }
 
   Widget _buildMobileLayout(BuildContext context) {
@@ -50,17 +58,11 @@ class SongListTile extends ConsumerWidget {
     );
 
     return ListTile(
-      leading: isSelectionMode
-          ? Checkbox(
-              value: isSelected,
-              onChanged: (_) => onSelect?.call(),
-            )
-          : _buildCoverImage(coverUrl, 48),
-      title: Text(
-        song.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      leading:
+          isSelectionMode
+              ? Checkbox(value: isSelected, onChanged: (_) => onSelect?.call())
+              : _buildCoverImage(coverUrl, 48),
+      title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         song.artist ?? '未知艺术家',
         maxLines: 1,
@@ -88,10 +90,7 @@ class SongListTile extends ConsumerWidget {
           children: [
             // 多选复选框
             if (isSelectionMode)
-              Checkbox(
-                value: isSelected,
-                onChanged: (_) => onSelect?.call(),
-              )
+              Checkbox(value: isSelected, onChanged: (_) => onSelect?.call())
             else
               SizedBox(
                 width: 40,
@@ -128,22 +127,21 @@ class SongListTile extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 16),
-            // 专辑
-            Expanded(
-              flex: 2,
-              child: Text(
-                song.album ?? '未知专辑',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: colorScheme.onSurfaceVariant),
+            // 专辑（窄屏隐藏）
+            if (!isNarrow) ...[
+              Expanded(
+                flex: 2,
+                child: Text(
+                  song.album ?? '未知专辑',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
+            ],
             // 类型标签
-            SizedBox(
-              width: 60,
-              child: _buildTypeChip(context),
-            ),
+            SizedBox(width: 60, child: _buildTypeChip(context)),
             const SizedBox(width: 16),
             // 时长
             SizedBox(
@@ -166,15 +164,16 @@ class SongListTile extends ConsumerWidget {
   Widget _buildCoverImage(String? coverUrl, double size) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
-      child: coverUrl != null
-          ? Image.network(
-              coverUrl,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildDefaultCover(size),
-            )
-          : _buildDefaultCover(size),
+      child:
+          coverUrl != null
+              ? Image.network(
+                coverUrl,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _buildDefaultCover(size),
+              )
+              : _buildDefaultCover(size),
     );
   }
 
@@ -183,11 +182,7 @@ class SongListTile extends ConsumerWidget {
       width: size,
       height: size,
       color: Colors.grey[300],
-      child: Icon(
-        _getTypeIcon(),
-        size: size * 0.5,
-        color: Colors.grey[600],
-      ),
+      child: Icon(_getTypeIcon(), size: size * 0.5, color: Colors.grey[600]),
     );
   }
 
@@ -229,10 +224,7 @@ class SongListTile extends ConsumerWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 12,
-          color: color,
-        ),
+        style: TextStyle(fontSize: 12, color: color),
         textAlign: TextAlign.center,
       ),
     );
@@ -244,10 +236,7 @@ class SongListTile extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        FavoriteButton(
-          songId: song.id,
-          size: 20,
-        ),
+        FavoriteButton(songId: song.id, size: 20),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           onSelected: (value) {
@@ -266,41 +255,42 @@ class SongListTile extends ConsumerWidget {
                 break;
             }
           },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'play',
-              child: ListTile(
-                leading: Icon(Icons.play_arrow),
-                title: Text('播放'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            if (song.type != AppConstants.songTypeLocal)
-              const PopupMenuItem(
-                value: 'edit',
-                child: ListTile(
-                  leading: Icon(Icons.edit),
-                  title: Text('编辑'),
-                  contentPadding: EdgeInsets.zero,
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(
+                  value: 'play',
+                  child: ListTile(
+                    leading: Icon(Icons.play_arrow),
+                    title: Text('播放'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-              ),
-            const PopupMenuItem(
-              value: 'add_to_playlist',
-              child: ListTile(
-                leading: Icon(Icons.playlist_add),
-                title: Text('添加到歌单'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: ListTile(
-                leading: Icon(Icons.delete),
-                title: Text('删除'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
+                if (song.type != AppConstants.songTypeLocal)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit),
+                      title: Text('编辑'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                const PopupMenuItem(
+                  value: 'add_to_playlist',
+                  child: ListTile(
+                    leading: Icon(Icons.playlist_add),
+                    title: Text('添加到歌单'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete),
+                    title: Text('删除'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
         ),
       ],
     );
@@ -318,10 +308,7 @@ class SongListTile extends ConsumerWidget {
           onPressed: onTap,
           iconSize: 20,
         ),
-        FavoriteButton(
-          songId: song.id,
-          size: 20,
-        ),
+        FavoriteButton(songId: song.id, size: 20),
         if (song.type != AppConstants.songTypeLocal)
           IconButton(
             icon: const Icon(Icons.edit),

@@ -255,10 +255,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return RefreshIndicator(
       onRefresh: () => ref.read(songsListProvider.notifier).refresh(),
-      child:
-          context.isMobile
-              ? _buildMobileList(context, state)
-              : _buildDesktopList(context, state),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 使用实际可用宽度判断，避免在窄容器中溢出
+          if (context.isMobile ||
+              constraints.maxWidth < ResponsiveBreakpoints.tablet) {
+            return _buildMobileList(context, state);
+          } else {
+            return _buildDesktopList(context, state);
+          }
+        },
+      ),
     );
   }
 
@@ -302,127 +309,136 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Column(
-      children: [
-        // 表头
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: colorScheme.outlineVariant),
-            ),
-          ),
-          child: Row(
-            children: [
-              if (state.isSelectionMode)
-                const SizedBox(width: 48)
-              else
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    '#',
-                    style: textTheme.titleSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              const SizedBox(width: 52), // 封面空间
-              Expanded(
-                flex: 3,
-                child: Text(
-                  '标题',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  '艺术家',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  '专辑',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  '类型',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  '时长',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const SizedBox(width: 120), // 操作按钮空间
-            ],
-          ),
-        ),
-        // 列表
-        Expanded(
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.only(bottom: 80),
-            itemCount: state.songs.length + (state.isLoadingMore ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index >= state.songs.length) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 700; // 宽庤阈值
 
-              final song = state.songs[index];
-              return SongListTile(
-                song: song,
-                index: index,
-                isSelected: state.selectedSongIds.contains(song.id),
-                isSelectionMode: state.isSelectionMode,
-                onTap: () => _onSongTap(song),
-                onSelect: () {
-                  ref
-                      .read(songsListProvider.notifier)
-                      .toggleSongSelection(song.id);
+        return Column(
+          children: [
+            // 表头
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (state.isSelectionMode)
+                    const SizedBox(width: 48)
+                  else
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        '#',
+                        style: textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  const SizedBox(width: 52), // 封面空间
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      '标题',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      '艺术家',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '专辑',
+                        style: textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      '类型',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      '时长',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const SizedBox(width: 120), // 操作按钮空间
+                ],
+              ),
+            ),
+            // 列表
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(bottom: 80),
+                itemCount: state.songs.length + (state.isLoadingMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index >= state.songs.length) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  final song = state.songs[index];
+                  return SongListTile(
+                    song: song,
+                    index: index,
+                    isSelected: state.selectedSongIds.contains(song.id),
+                    isSelectionMode: state.isSelectionMode,
+                    isNarrow: isNarrow,
+                    onTap: () => _onSongTap(song),
+                    onSelect: () {
+                      ref
+                          .read(songsListProvider.notifier)
+                          .toggleSongSelection(song.id);
+                    },
+                    onDelete: () => _showDeleteConfirmDialog(context, song.id),
+                    onEdit:
+                        song.type != AppConstants.songTypeLocal
+                            ? () => _navigateToEditSong(context, song)
+                            : null,
+                    onAddToPlaylist:
+                        () => _showAddToPlaylistDialog(context, [song.id]),
+                  );
                 },
-                onDelete: () => _showDeleteConfirmDialog(context, song.id),
-                onEdit:
-                    song.type != AppConstants.songTypeLocal
-                        ? () => _navigateToEditSong(context, song)
-                        : null,
-                onAddToPlaylist:
-                    () => _showAddToPlaylistDialog(context, [song.id]),
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

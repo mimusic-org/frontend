@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/responsive.dart';
 
 /// 响应式 SnackBar 辅助工具
 ///
@@ -8,33 +7,48 @@ import '../../core/theme/responsive.dart';
 class ResponsiveSnackBar {
   ResponsiveSnackBar._();
 
+  /// 计算消息文本所需的宽度（含内边距），上限为屏幕宽度减去边距
+  static double _calcWidth(BuildContext context, String message) {
+    // SnackBar Material3 默认 padding: horizontal 16, vertical 14
+    const double snackBarHorizontalPadding = 16.0;
+    const double safetyBuffer = 16.0; // 防止字体渲染误差导致换行
+    const double minWidth = 120.0;
+    const double screenMargin = 32.0; // 左右各 16dp 屏幕边距
+
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final textScaler = mediaQuery.textScaler;
+    final maxWidth = screenWidth - screenMargin;
+
+    // 获取当前主题的默认字体大小（SnackBar content 默认 bodyMedium）
+    final defaultFontSize =
+        Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14.0;
+    final scaledFontSize = textScaler.scale(defaultFontSize);
+
+    final textPainter = TextPainter(
+      text: TextSpan(text: message, style: TextStyle(fontSize: scaledFontSize)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: maxWidth);
+
+    final contentWidth =
+        textPainter.width + snackBarHorizontalPadding * 2 + safetyBuffer;
+    return contentWidth.clamp(minWidth, maxWidth);
+  }
+
   /// 显示响应式 SnackBar
   ///
-  /// 自动根据屏幕类型调整显示效果：
-  /// - TV 模式: 大字体(20sp)、宽显示(600px)、大内边距
-  /// - Desktop 模式: 中等字体(16sp)、中等宽度(480px)
-  /// - 其他模式: 使用默认配置
+  /// 所有端统一使用自适应内容宽度，Toast 背景随文字长度变化。
   static void show(
     BuildContext context, {
     required String message,
     Color? backgroundColor,
     Duration duration = const Duration(seconds: 4),
-    SnackBarAction? action,
   }) {
-    final screenType = context.screenType;
-    final isTv = screenType == ScreenType.tv;
-    final isDesktop = screenType == ScreenType.desktop;
-
     final snackBar = SnackBar(
       content: Text(
         message,
         style: TextStyle(
-          fontSize:
-              isTv
-                  ? 20
-                  : isDesktop
-                  ? 16
-                  : null,
           // 显式设置颜色确保对比度
           // 自定义背景色时用白色，默认背景使用 Material 3 的 onInverseSurface
           color:
@@ -46,20 +60,8 @@ class ResponsiveSnackBar {
       backgroundColor: backgroundColor,
       behavior: SnackBarBehavior.floating,
       duration: duration,
-      width:
-          isTv
-              ? 600
-              : isDesktop
-              ? 480
-              : null,
-      padding:
-          isTv
-              ? const EdgeInsets.symmetric(horizontal: 24, vertical: 16)
-              : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(isTv ? 12 : 8),
-      ),
-      action: action,
+      width: _calcWidth(context, message),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
 
     ScaffoldMessenger.of(context)

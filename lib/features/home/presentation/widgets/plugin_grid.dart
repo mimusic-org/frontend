@@ -32,33 +32,38 @@ class PluginGrid extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // 根据屏幕尺寸确定列数
-    final crossAxisCount = context.responsive<int>(
-      mobile: 2,
-      tablet: 3,
-      desktop: 4,
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 基于实际容器宽度计算列数，避免在窄容器中溢出
+        // 每个插件卡片至少需要 160px 宽度
+        final containerWidth = constraints.maxWidth - 32; // 减去水平 padding
+        final crossAxisCount =
+            context.isMobile || containerWidth < ResponsiveBreakpoints.tablet
+                ? (containerWidth / 180).floor().clamp(1, 2)
+                : context.responsive<int>(mobile: 2, tablet: 3, desktop: 4);
 
-    final spacing = context.responsive<double>(
-      mobile: 12,
-      tablet: 16,
-      desktop: 16,
-    );
+        final spacing = context.responsive<double>(
+          mobile: 12,
+          tablet: 16,
+          desktop: 16,
+        );
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        mainAxisSpacing: spacing,
-        crossAxisSpacing: spacing,
-        childAspectRatio: 2.2, // 宽高比，卡片较宽
-      ),
-      itemCount: activePlugins.length,
-      itemBuilder: (context, index) {
-        final plugin = activePlugins[index];
-        return _PluginCard(plugin: plugin);
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: 2.2, // 宽高比，卡片较宽
+          ),
+          itemCount: activePlugins.length,
+          itemBuilder: (context, index) {
+            final plugin = activePlugins[index];
+            return _PluginCard(plugin: plugin);
+          },
+        );
       },
     );
   }
@@ -82,6 +87,7 @@ class _PluginCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // 左侧图标
               Container(
@@ -100,31 +106,35 @@ class _PluginCard extends StatelessWidget {
               const SizedBox(width: 12),
               // 中间信息
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      plugin.displayName,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (plugin.description != null &&
-                        plugin.description!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        plugin.description!,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                        plugin.displayName,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (plugin.description != null &&
+                          plugin.description!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          plugin.description!,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
               // 右侧箭头
