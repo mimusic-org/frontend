@@ -89,25 +89,31 @@ class _PlaylistCarouselItem extends StatelessWidget {
                   color: colorScheme.surfaceContainerHighest,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: coverUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: coverUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => _buildPlaceholder(colorScheme),
-                        errorWidget: (context, url, error) => _buildPlaceholder(colorScheme),
-                      )
-                    : _buildPlaceholder(colorScheme),
+                child:
+                    coverUrl != null
+                        ? CachedNetworkImage(
+                          imageUrl: coverUrl,
+                          fit: BoxFit.cover,
+                          placeholder:
+                              (context, url) => _buildPlaceholder(colorScheme),
+                          errorWidget:
+                              (context, url, error) =>
+                                  _buildPlaceholder(colorScheme),
+                        )
+                        : _buildPlaceholder(colorScheme),
               ),
             ),
             const SizedBox(height: 8),
             // 歌单名称
-            Text(
-              playlist.name,
-              style: textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
+            Expanded(
+              child: Text(
+                playlist.name,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

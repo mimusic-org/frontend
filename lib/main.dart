@@ -1,6 +1,8 @@
 import 'dart:io' show Platform;
 import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -107,6 +109,17 @@ void main() async {
   );
 }
 
+/// 支持鼠标拖拽滚动的 ScrollBehavior（macOS / desktop）
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
+}
+
 class MiMusicApp extends ConsumerWidget {
   const MiMusicApp({super.key});
 
@@ -125,6 +138,7 @@ class MiMusicApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'MiMusic',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: _AppScrollBehavior(),
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
       themeMode: themeMode,
@@ -135,9 +149,10 @@ class MiMusicApp extends ConsumerWidget {
         final screenType = _getScreenType(width);
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return Theme(
-          data: isDark
-              ? AppTheme.darkTheme(screenType: screenType)
-              : AppTheme.lightTheme(screenType: screenType),
+          data:
+              isDark
+                  ? AppTheme.darkTheme(screenType: screenType)
+                  : AppTheme.lightTheme(screenType: screenType),
           child: child!,
         );
       },
