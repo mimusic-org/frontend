@@ -7,7 +7,6 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../shared/widgets/tv_focusable.dart';
 import '../../domain/player_state.dart';
 import '../providers/player_provider.dart';
-import 'popup_controls.dart';
 
 /// TV 全屏播放器界面
 ///

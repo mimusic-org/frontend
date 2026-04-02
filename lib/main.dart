@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 import 'dart:ui';
 
-import 'package:flutter/gestures.dart';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
