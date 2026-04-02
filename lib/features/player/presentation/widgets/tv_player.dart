@@ -434,7 +434,7 @@ class TvPlayer extends ConsumerWidget {
   IconData _getPlayModeIcon(PlayMode mode) {
     switch (mode) {
       case PlayMode.order:
-        return Icons.repeat_rounded;
+        return Icons.format_list_numbered_rounded;
       case PlayMode.loop:
         return Icons.repeat_rounded;
       case PlayMode.single:
@@ -442,7 +442,7 @@ class TvPlayer extends ConsumerWidget {
       case PlayMode.random:
         return Icons.shuffle_rounded;
       case PlayMode.singlePlay:
-        return Icons.looks_one_rounded;
+        return Icons.looks_one_outlined;
     }
   }
 

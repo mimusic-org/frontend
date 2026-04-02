@@ -25,7 +25,7 @@ class _PopupPlayModeControlState extends State<PopupPlayModeControl> {
   IconData get _playModeIcon {
     switch (widget.playMode) {
       case PlayMode.order:
-        return Icons.repeat_rounded;
+        return Icons.format_list_numbered_rounded;
       case PlayMode.loop:
         return Icons.repeat_rounded;
       case PlayMode.single:
@@ -33,7 +33,7 @@ class _PopupPlayModeControlState extends State<PopupPlayModeControl> {
       case PlayMode.random:
         return Icons.shuffle_rounded;
       case PlayMode.singlePlay:
-        return Icons.looks_one_rounded;
+        return Icons.looks_one_outlined;
     }
   }
 
@@ -84,7 +84,7 @@ class _PopupPlayModeControlState extends State<PopupPlayModeControl> {
   IconData _getPlayModeIconForMode(PlayMode mode) {
     switch (mode) {
       case PlayMode.order:
-        return Icons.repeat_rounded;
+        return Icons.format_list_numbered_rounded;
       case PlayMode.loop:
         return Icons.repeat_rounded;
       case PlayMode.single:
@@ -92,7 +92,7 @@ class _PopupPlayModeControlState extends State<PopupPlayModeControl> {
       case PlayMode.random:
         return Icons.shuffle_rounded;
       case PlayMode.singlePlay:
-        return Icons.looks_one_rounded;
+        return Icons.looks_one_outlined;
     }
   }
 
