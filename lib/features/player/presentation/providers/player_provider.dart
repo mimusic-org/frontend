@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 
+import '../../../../config/app_config.dart';
 import '../../../../core/audio/audio_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/secure_storage.dart';
@@ -31,10 +33,12 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   Timer? _sleepTimer;
   Timer? _sleepTimerCountdown;
+  CancelToken? _prefetchCancelToken;
 
   final Random _random = Random();
   final Set<int> _playedIndices = {}; // 随机模式下已播放的索引
   int _loadGeneration = 0; // 后台加载代次，用于取消过期的异步加载任务
+  int? _preSelectedNextIndex; // 预选的下一首歌曲索引（随机模式使用）
 
   @override
   PlayerState build() {
@@ -53,6 +57,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       _playerStateSubscription?.cancel();
       _sleepTimer?.cancel();
       _sleepTimerCountdown?.cancel();
+      _prefetchCancelToken?.cancel('disposed');
     });
 
     // 从本地存储加载音量和播放模式设置
@@ -177,6 +182,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
       return;
     }
 
+    // 取消之前的预加载
+    _prefetchCancelToken?.cancel('operation changed');
+
     // 递增代次，使正在进行的后台加载自动取消
     _loadGeneration++;
 
@@ -185,6 +193,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       '[Player] playPlaylist: starting with song: ${songs[safeIndex].title}',
     );
     _playedIndices.clear();
+    _preSelectedNextIndex = null;
 
     state = state.copyWith(
       playlist: List.from(songs),
@@ -259,7 +268,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
     int nextIndex;
     if (state.playMode == PlayMode.random) {
-      nextIndex = _getRandomIndex();
+      nextIndex = _preSelectedNextIndex ?? _getRandomIndex();
       debugPrint('[Player] playNext: random mode, nextIndex: $nextIndex');
     } else {
       nextIndex = state.currentIndex + 1;
@@ -354,6 +363,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
   /// 设置播放模式
   Future<void> setPlayMode(PlayMode mode) async {
     _playedIndices.clear();
+    _preSelectedNextIndex = null;
     state = state.copyWith(playMode: mode);
 
     // 保存到本地存储
@@ -433,10 +443,13 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 清空播放列表
   void clearPlaylist() {
+    // 取消之前的预加载
+    _prefetchCancelToken?.cancel('operation changed');
     // 递增代次，使正在进行的后台加载自动取消
     _loadGeneration++;
     _audioHandler.stop();
     _playedIndices.clear();
+    _preSelectedNextIndex = null;
     state = state.copyWith(
       playlist: [],
       currentIndex: -1,
@@ -654,6 +667,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
   Future<void> _playAtIndex(int index) async {
     if (index < 0 || index >= state.playlist.length) return;
 
+    // 取消之前的预加载
+    _prefetchCancelToken?.cancel('operation changed');
+
     _playedIndices.add(index);
     state = state.copyWith(
       currentIndex: index,
@@ -687,10 +703,99 @@ class PlayerNotifier extends Notifier<PlayerState> {
       // 设置音量
       await _audioHandler.setVolume(state.volume / 100);
       debugPrint('[Player] _playCurrent: playback started successfully');
+      // 预选下一首并预加载
+      _preSelectNextIndex();
+      _prefetchNextSong(token);
     } catch (e) {
       debugPrint('[Player] _playCurrent: error - $e');
       state = state.copyWith(isBuffering: false);
       rethrow;
+    }
+  }
+
+  /// 预加载下一首歌曲
+  void _prefetchNextSong(String? token) async {
+    final nextIndex = _preSelectedNextIndex;
+    if (nextIndex == null) return;
+    if (nextIndex < 0 || nextIndex >= state.playlist.length) return;
+
+    final nextSong = state.playlist[nextIndex];
+
+    // 只预加载有相对路径 URL 的网络歌曲（插件歌曲）
+    if (nextSong.type == 'local') return;
+    if (nextSong.url == null || nextSong.url!.isEmpty) return;
+    if (!nextSong.url!.startsWith('/')) return; // 外部 URL 无需预加载
+
+    // 取消之前的预加载
+    _prefetchCancelToken?.cancel('new prefetch');
+    _prefetchCancelToken = CancelToken();
+
+    try {
+      // 构造预加载 URL：baseUrl + songUrl + access_token + prefetch=true
+      final songUrl = nextSong.url!;
+      final accessToken = token ?? '';
+      final separator = songUrl.contains('?') ? '&' : '?';
+      final prefetchUrl =
+          '${AppConfig.baseUrl}$songUrl${separator}access_token=$accessToken&prefetch=true';
+
+      debugPrint('[Player] Prefetching next song: ${nextSong.title}');
+
+      // 使用简单的 Dio 实例发起 GET 请求
+      // 后端会 302 → 缓存接口检测 prefetch=true → 启动后台下载 → 202
+      final dio = Dio();
+      await dio.get(
+        prefetchUrl,
+        cancelToken: _prefetchCancelToken,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 10),
+          // 允许 2xx 和 3xx 状态码
+          validateStatus: (status) => status != null && status < 400,
+        ),
+      );
+
+      debugPrint('[Player] Prefetch completed for: ${nextSong.title}');
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        debugPrint('[Player] Prefetch cancelled for: ${nextSong.title}');
+      } else {
+        debugPrint('[Player] Prefetch failed for: ${nextSong.title}: $e');
+      }
+    } catch (e) {
+      debugPrint('[Player] Prefetch error: $e');
+    }
+  }
+
+  /// 预选下一首歌曲索引（用于预加载和随机模式播放）
+  void _preSelectNextIndex() {
+    if (state.playlist.isEmpty || state.currentIndex < 0) {
+      _preSelectedNextIndex = null;
+      return;
+    }
+
+    switch (state.playMode) {
+      case PlayMode.order:
+        final next = state.currentIndex + 1;
+        _preSelectedNextIndex = next < state.playlist.length ? next : null;
+        break;
+      case PlayMode.loop:
+        _preSelectedNextIndex =
+            (state.currentIndex + 1) % state.playlist.length;
+        break;
+      case PlayMode.random:
+        _preSelectedNextIndex = _getRandomIndex();
+        break;
+      case PlayMode.single:
+      case PlayMode.singlePlay:
+        _preSelectedNextIndex = null; // 不需要预选
+        break;
+    }
+
+    if (_preSelectedNextIndex != null) {
+      debugPrint(
+        '[Player] Pre-selected next index: $_preSelectedNextIndex'
+        ' (${state.playlist[_preSelectedNextIndex!].title})',
+      );
     }
   }
 
