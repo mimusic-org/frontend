@@ -1,5 +1,9 @@
 import 'dart:async';
 
+// LockCachingAudioSource 是 just_audio 中标记为实验性的边播边缓存 API，
+// 目前没有稳定替代方案，此处有意使用以提升播放体验。
+// ignore_for_file: experimental_member_use
+
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
@@ -177,7 +181,12 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
           '${AppConfig.baseUrl}/music/$encodedPath$ext?access_token=$token',
         );
         debugPrint('[Player] MiMusicAudioHandler: local song, uri: $uri');
-        source = ja.AudioSource.uri(uri);
+        // Web 平台使用 AudioSource.uri，其他平台使用 LockCachingAudioSource 实现边播边缓存
+        if (kIsWeb) {
+          source = ja.AudioSource.uri(uri);
+        } else {
+          source = ja.LockCachingAudioSource(uri);
+        }
       } else if (song.url != null && song.url!.isNotEmpty) {
         // 网络歌曲或电台：Web 平台通过后端代理转发，解决 CORS 限制
         String songUrl = song.url!;
@@ -198,7 +207,12 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
         }
 
         debugPrint('[Player] MiMusicAudioHandler: network song, url: $songUrl');
-        source = ja.AudioSource.uri(Uri.parse(songUrl));
+        // Web 平台使用 AudioSource.uri，其他平台使用 LockCachingAudioSource 实现边播边缓存
+        if (kIsWeb) {
+          source = ja.AudioSource.uri(Uri.parse(songUrl));
+        } else {
+          source = ja.LockCachingAudioSource(Uri.parse(songUrl));
+        }
       } else {
         debugPrint('[Player] MiMusicAudioHandler: no valid source for song');
         throw Exception('无法播放：歌曲没有有效的播放源');
