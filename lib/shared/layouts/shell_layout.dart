@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/responsive.dart';
 import '../../features/library/presentation/providers/favorite_provider.dart';
+import '../../features/player/domain/player_state.dart';
 import '../../features/player/presentation/providers/player_provider.dart';
 import '../../features/player/presentation/widgets/desktop_player.dart';
 import '../../features/player/presentation/widgets/mini_player.dart';
 import '../../features/player/presentation/widgets/playlist_drawer.dart';
 import '../../features/player/presentation/widgets/tv_player.dart';
+import '../utils/responsive_snackbar.dart';
 import 'adaptive_scaffold.dart';
 
 /// ShellRoute 的布局组件
@@ -60,6 +62,14 @@ class ShellLayout extends ConsumerWidget {
 
     // 确保收藏系统被初始化（FavoriteNotifier.build 中自动调度）
     ref.watch(favoriteProvider);
+
+    // 监听播放器错误状态
+    ref.listen<PlayerState>(playerStateProvider, (prev, next) {
+      if (next.errorMessage != null &&
+          next.errorMessage != prev?.errorMessage) {
+        ResponsiveSnackBar.showError(context, message: next.errorMessage!);
+      }
+    });
 
     // 监听播放队列侧边栏状态（仅桌面/平板端有效）
     final showPlaylistDrawer = ref.watch(

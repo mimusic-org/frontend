@@ -67,6 +67,8 @@ class PlayerState {
   final bool showPlaylistDrawer; // 播放列表抽屉
   final Duration? sleepTimerRemaining; // 睡眠定时器剩余时间
   final double? previousVolume; // 静音前的音量（用于恢复）
+  final String? errorMessage; // 当前错误消息，UI 层监听后显示 SnackBar
+  final bool isRetrying; // 是否正在重试中
 
   const PlayerState({
     this.currentSong,
@@ -82,6 +84,8 @@ class PlayerState {
     this.showPlaylistDrawer = false,
     this.sleepTimerRemaining,
     this.previousVolume,
+    this.errorMessage,
+    this.isRetrying = false,
   });
 
   /// 初始状态
@@ -148,9 +152,12 @@ class PlayerState {
     bool? showPlaylistDrawer,
     Duration? sleepTimerRemaining,
     double? previousVolume,
+    String? errorMessage,
+    bool? isRetrying,
     bool clearCurrentSong = false,
     bool clearSleepTimer = false,
     bool clearPreviousVolume = false,
+    bool clearErrorMessage = false,
   }) {
     return PlayerState(
       currentSong: clearCurrentSong ? null : (currentSong ?? this.currentSong),
@@ -170,11 +177,15 @@ class PlayerState {
               : (sleepTimerRemaining ?? this.sleepTimerRemaining),
       previousVolume:
           clearPreviousVolume ? null : (previousVolume ?? this.previousVolume),
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      isRetrying: isRetrying ?? this.isRetrying,
     );
   }
 
   @override
   String toString() {
-    return 'PlayerState(song: ${currentSong?.title}, index: $currentIndex, playing: $isPlaying, mode: $playMode)';
+    final errorInfo = errorMessage != null ? ', error: $errorMessage' : '';
+    return 'PlayerState(song: ${currentSong?.title}, index: $currentIndex, playing: $isPlaying, mode: $playMode$errorInfo)';
   }
 }

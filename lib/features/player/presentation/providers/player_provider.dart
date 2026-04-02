@@ -40,6 +40,13 @@ class PlayerNotifier extends Notifier<PlayerState> {
   int _loadGeneration = 0; // 后台加载代次，用于取消过期的异步加载任务
   int? _preSelectedNextIndex; // 预选的下一首歌曲索引（随机模式使用）
 
+  // 播放失败重试配置
+  static const int _maxRetryPerSong = 2; // N1: 单首歌曲最大重试次数
+  static const int _maxConsecutiveSkips = 3; // N2: 连续跳过失败上限
+  static const int _retryDelayMs = 1000; // 重试间隔（毫秒）
+
+  int _consecutiveFailures = 0; // 连续跳过失败计数器
+
   @override
   PlayerState build() {
     _audioHandler = ref.watch(audioHandlerProvider);
@@ -121,6 +128,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 歌曲播放完成处理
   void _onSongCompleted() {
+    _consecutiveFailures = 0;
     debugPrint('[Player] Song completed, playMode: ${state.playMode}');
     switch (state.playMode) {
       case PlayMode.single:
@@ -149,6 +157,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     debugPrint(
       '[Player] playSong: ${song.title} (id: ${song.id}, type: ${song.type})',
     );
+    _consecutiveFailures = 0;
     // 检查是否已在播放列表中
     final existingIndex = state.playlist.indexWhere(
       (s) => s.id == song.id && s.type == song.type,
@@ -177,6 +186,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     debugPrint(
       '[Player] playPlaylist: ${songs.length} songs, startIndex: $startIndex',
     );
+    _consecutiveFailures = 0;
     if (songs.isEmpty) {
       debugPrint('[Player] playPlaylist: empty songs list, returning');
       return;
@@ -447,6 +457,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     _prefetchCancelToken?.cancel('operation changed');
     // 递增代次，使正在进行的后台加载自动取消
     _loadGeneration++;
+    _consecutiveFailures = 0;
     _audioHandler.stop();
     _playedIndices.clear();
     _preSelectedNextIndex = null;
@@ -470,6 +481,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     const firstPageLimit = 100;
 
     debugPrint('[Player] playPlaylistById: start, playlistId=$playlistId');
+    _consecutiveFailures = 0;
     try {
       final firstPageResponse = await playlistApi.getPlaylistSongs(
         playlistId,
@@ -630,6 +642,11 @@ class PlayerNotifier extends Notifier<PlayerState> {
     state = state.copyWith(showPlaylistDrawer: false);
   }
 
+  /// 清除错误消息
+  void clearError() {
+    state = state.copyWith(clearErrorMessage: true);
+  }
+
   /// 设置睡眠定时器
   void setSleepTimer(Duration duration) {
     cancelSleepTimer();
@@ -680,7 +697,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     await _playCurrent();
   }
 
-  /// 播放当前歌曲
+  /// 播放当前歌曲（带自动重试）
   Future<void> _playCurrent() async {
     final song = state.currentSong;
     if (song == null) {
@@ -695,22 +712,123 @@ class PlayerNotifier extends Notifier<PlayerState> {
       '[Player] _playCurrent: filePath: ${song.filePath}, url: ${song.url}',
     );
 
-    try {
-      state = state.copyWith(isBuffering: true);
-      final token = await _secureStorage.getAccessToken();
-      debugPrint('[Player] _playCurrent: calling audioHandler.playSong');
-      await _audioHandler.playSong(song, token);
-      // 设置音量
-      await _audioHandler.setVolume(state.volume / 100);
-      debugPrint('[Player] _playCurrent: playback started successfully');
-      // 预选下一首并预加载
-      _preSelectNextIndex();
-      _prefetchNextSong(token);
-    } catch (e) {
-      debugPrint('[Player] _playCurrent: error - $e');
-      state = state.copyWith(isBuffering: false);
-      rethrow;
+    for (int retry = 0; retry <= _maxRetryPerSong; retry++) {
+      try {
+        if (retry > 0) {
+          debugPrint(
+            '[Player] Retry $retry/$_maxRetryPerSong for: ${song.title}',
+          );
+          state = state.copyWith(isRetrying: true);
+          await Future<void>.delayed(
+            const Duration(milliseconds: _retryDelayMs),
+          );
+        }
+
+        state = state.copyWith(isBuffering: true, clearErrorMessage: true);
+        final token = await _secureStorage.getAccessToken();
+        debugPrint('[Player] _playCurrent: calling audioHandler.playSong');
+        await _audioHandler.playSong(song, token);
+        // 设置音量
+        await _audioHandler.setVolume(state.volume / 100);
+        debugPrint('[Player] _playCurrent: playback started successfully');
+
+        // 播放成功 - 重置连续失败计数
+        _consecutiveFailures = 0;
+        state = state.copyWith(isRetrying: false);
+
+        // 预选下一首并预加载
+        _preSelectNextIndex();
+        _prefetchNextSong(token);
+        return; // 成功退出
+      } catch (e) {
+        debugPrint(
+          '[Player] _playCurrent: play failed (retry $retry/$_maxRetryPerSong): $e',
+        );
+      }
     }
+
+    // 所有重试都失败
+    debugPrint(
+      '[Player] _playCurrent: all retries exhausted for: ${song.title}',
+    );
+    state = state.copyWith(isBuffering: false, isRetrying: false);
+    _handlePlayFailure();
+  }
+
+  /// 处理播放失败（重试耗尽后）
+  /// 第二层：自动切歌（仅 order/loop/random 模式）
+  /// 第三层：连续失败过多则停止
+  void _handlePlayFailure() {
+    _consecutiveFailures++;
+    final failedSong = state.currentSong?.title ?? '未知歌曲';
+
+    debugPrint(
+      '[Player] Song failed after retries: $failedSong, '
+      'consecutiveFailures: $_consecutiveFailures/$_maxConsecutiveSkips',
+    );
+
+    // singlePlay / single 模式：不自动切歌，直接停止
+    if (state.playMode == PlayMode.singlePlay ||
+        state.playMode == PlayMode.single) {
+      debugPrint('[Player] Single mode, not skipping to next');
+      state = state.copyWith(
+        isPlaying: false,
+        isBuffering: false,
+        errorMessage: '"$failedSong" 播放失败',
+      );
+      _audioHandler.stop();
+      _consecutiveFailures = 0; // 单曲模式不累计连续失败
+      return;
+    }
+
+    if (_consecutiveFailures >= _maxConsecutiveSkips) {
+      // 第三层：连续 N2 首都失败，停止播放
+      debugPrint('[Player] Too many consecutive failures, stopping');
+      state = state.copyWith(
+        isPlaying: false,
+        isBuffering: false,
+        errorMessage: '连续 $_consecutiveFailures 首歌曲播放失败，已停止播放，请检查网络连接',
+      );
+      _audioHandler.stop();
+      return;
+    }
+
+    // 第二层：自动切到下一首（仅 order/loop/random 模式）
+    state = state.copyWith(errorMessage: '"$failedSong" 播放失败，正在尝试下一首...');
+    _skipToNextOnFailure();
+  }
+
+  /// 播放失败时自动切到下一首
+  /// 仅在 order/loop/random 模式下调用
+  Future<void> _skipToNextOnFailure() async {
+    if (state.playlist.isEmpty || state.playlist.length <= 1) {
+      // 只有一首歌或空列表，无法切歌
+      state = state.copyWith(errorMessage: '播放失败，无其他可播放的歌曲', isPlaying: false);
+      _audioHandler.stop();
+      return;
+    }
+
+    int nextIndex;
+    if (state.playMode == PlayMode.random) {
+      nextIndex = _getRandomIndex();
+    } else {
+      nextIndex = state.currentIndex + 1;
+      if (nextIndex >= state.playlist.length) {
+        if (state.playMode == PlayMode.order) {
+          // 顺序模式已到末尾，停止
+          state = state.copyWith(
+            errorMessage: '播放失败，已到播放列表末尾',
+            isPlaying: false,
+          );
+          _audioHandler.stop();
+          return;
+        }
+        nextIndex = 0; // loop 模式回绕
+      }
+    }
+
+    debugPrint('[Player] Skipping to next on failure: index $nextIndex');
+    await _playAtIndex(nextIndex);
   }
 
   /// 预加载下一首歌曲
