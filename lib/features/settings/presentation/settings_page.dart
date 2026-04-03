@@ -114,16 +114,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           const SizedBox(height: 16),
 
-          // 分组4: 令牌管理
-          _buildSectionCard(
-            title: '安全',
-            icon: Icons.security_outlined,
-            children: [const TokenManager()],
-          ),
-
-          const SizedBox(height: 16),
-
-          // 分组5: 插件管理
+          // 分组4: 插件管理
           _buildSectionCard(
             title: '扩展',
             icon: Icons.extension_outlined,
@@ -132,6 +123,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               const Divider(height: 1),
               const ConfigManager(),
             ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 分组5: 令牌管理
+          _buildSectionCard(
+            title: '安全',
+            icon: Icons.security_outlined,
+            children: [const TokenManager()],
           ),
 
           const SizedBox(height: 16),
