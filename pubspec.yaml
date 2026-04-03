@@ -25,10 +25,9 @@ dependencies:
   audio_service: ^0.18.17
   audio_session: ^0.2.3
   # 权限管理
-  permission_handler: ^11.4.0
+  permission_handler: ^12.0.1
   # 本地存储
   shared_preferences: ^2.3.4
-  flutter_secure_storage: ^10.0.0
   # 图片缓存
   cached_network_image: ^3.4.1
   # 颜色提取

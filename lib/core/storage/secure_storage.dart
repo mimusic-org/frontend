@@ -1,114 +1,42 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Token 安全存储服务
+/// Token 存储服务
 ///
-/// - 原生平台：优先使用 FlutterSecureStorage（Keychain / EncryptedSharedPreferences），
-///   在不支持的平台（如 macOS 沙箱未签名）自动回退到 SharedPreferences。
-/// - Web 平台：直接使用 SharedPreferences（底层为 localStorage，刷新页面后数据仍在）。
-///   FlutterSecureStorage 在 Web 上使用 sessionStorage，刷新即丢失，不适合持久化 Token。
-/// - Windows 平台：FlutterSecureStorage 可能不稳定，依赖 cachedAccessToken 内存缓存作为主要读取源。
+/// 统一使用 SharedPreferences 作为存储后端：
+/// - 原生平台：SharedPreferences（Android EncryptedSharedPreferences 的简化替代）
+/// - Web 平台：SharedPreferences（底层为 localStorage，刷新页面后数据仍在）
+///
+/// 对于自托管的本地音乐服务器，简化存储实现是可接受的。
 class SecureStorageService {
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _tokenExpiresAtKey = 'token_expires_at';
-  static const _fallbackPrefix = 'secure_fallback_';
 
   /// 同步缓存的 Access Token，供需要同步访问 token 的地方使用（如构建 URL）
-  /// Windows 平台优先使用此缓存，避免 flutter_secure_storage 读取不稳定
   static String? cachedAccessToken;
 
   /// 同步缓存的 Refresh Token
   static String? cachedRefreshToken;
 
-  final FlutterSecureStorage _storage;
-  bool _useFallback = false;
   SharedPreferences? _prefs;
 
-  SecureStorageService({FlutterSecureStorage? storage})
-    : _storage = storage ?? _createSecureStorage() {
-    // Web 平台直接使用 SharedPreferences（localStorage），
-    // 因为 FlutterSecureStorage 在 Web 上基于 sessionStorage，刷新页面后数据丢失
-    if (kIsWeb) {
-      _useFallback = true;
-    }
-  }
-
-  /// 创建平台特定配置的 FlutterSecureStorage
-  static FlutterSecureStorage _createSecureStorage() {
-    // Windows 平台使用 WindowsOptions 配置
-    if (!kIsWeb && Platform.isWindows) {
-      return const FlutterSecureStorage(
-        aOptions: AndroidOptions(),
-        iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-        wOptions: WindowsOptions(),
-      );
-    }
-    return const FlutterSecureStorage(
-      aOptions: AndroidOptions(),
-      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-    );
-  }
-
-  Future<void> _write(String key, String value) async {
-    if (_useFallback) {
-      _prefs ??= await SharedPreferences.getInstance();
-      await _prefs!.setString('$_fallbackPrefix$key', value);
-      return;
-    }
-    try {
-      await _storage.write(key: key, value: value);
-    } catch (e) {
-      debugPrint('SecureStorage write failed, using fallback: $e');
-      _useFallback = true;
-      _prefs ??= await SharedPreferences.getInstance();
-      await _prefs!.setString('$_fallbackPrefix$key', value);
-    }
-  }
-
-  Future<String?> _read(String key) async {
-    if (_useFallback) {
-      _prefs ??= await SharedPreferences.getInstance();
-      return _prefs!.getString('$_fallbackPrefix$key');
-    }
-    try {
-      return await _storage.read(key: key);
-    } catch (e) {
-      debugPrint('SecureStorage read failed, using fallback: $e');
-      _useFallback = true;
-      _prefs ??= await SharedPreferences.getInstance();
-      return _prefs!.getString('$_fallbackPrefix$key');
-    }
-  }
-
-  Future<void> _delete(String key) async {
-    if (_useFallback) {
-      _prefs ??= await SharedPreferences.getInstance();
-      await _prefs!.remove('$_fallbackPrefix$key');
-      return;
-    }
-    try {
-      await _storage.delete(key: key);
-    } catch (e) {
-      debugPrint('SecureStorage delete failed, using fallback: $e');
-      _useFallback = true;
-      _prefs ??= await SharedPreferences.getInstance();
-      await _prefs!.remove('$_fallbackPrefix$key');
-    }
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
   }
 
   /// 保存 Access Token
   Future<void> saveAccessToken(String token) async {
     cachedAccessToken = token;
-    await _write(_accessTokenKey, token);
+    final prefs = await _getPrefs();
+    await prefs.setString(_accessTokenKey, token);
   }
 
   /// 获取 Access Token
   Future<String?> getAccessToken() async {
-    final token = await _read(_accessTokenKey);
+    final prefs = await _getPrefs();
+    final token = prefs.getString(_accessTokenKey);
     cachedAccessToken = token;
     return token;
   }
@@ -116,7 +44,8 @@ class SecureStorageService {
   /// 保存 Refresh Token
   Future<void> saveRefreshToken(String token) async {
     cachedRefreshToken = token;
-    await _write(_refreshTokenKey, token);
+    final prefs = await _getPrefs();
+    await prefs.setString(_refreshTokenKey, token);
   }
 
   /// 获取 Refresh Token
@@ -125,7 +54,8 @@ class SecureStorageService {
     if (cachedRefreshToken != null && cachedRefreshToken!.isNotEmpty) {
       return cachedRefreshToken;
     }
-    final token = await _read(_refreshTokenKey);
+    final prefs = await _getPrefs();
+    final token = prefs.getString(_refreshTokenKey);
     cachedRefreshToken = token;
     return token;
   }
@@ -136,7 +66,6 @@ class SecureStorageService {
     required String refreshToken,
     required int expiresIn,
   }) async {
-    // 先更新内存缓存
     cachedAccessToken = accessToken;
     cachedRefreshToken = refreshToken;
     debugPrint('[SecureStorage] saveTokens: caching tokens in memory');
@@ -144,18 +73,14 @@ class SecureStorageService {
     final expiresAt =
         DateTime.now().add(Duration(seconds: expiresIn)).toIso8601String();
 
+    final prefs = await _getPrefs();
     await Future.wait([
-      _write(_accessTokenKey, accessToken),
-      _write(_refreshTokenKey, refreshToken),
-      _write(_tokenExpiresAtKey, expiresAt),
+      prefs.setString(_accessTokenKey, accessToken),
+      prefs.setString(_refreshTokenKey, refreshToken),
+      prefs.setString(_tokenExpiresAtKey, expiresAt),
     ]);
 
-    // 验证写入成功
-    final verifyAccess = await _read(_accessTokenKey);
-    final verifyRefresh = await _read(_refreshTokenKey);
-    debugPrint(
-      '[SecureStorage] saveTokens: verified storage write - accessToken: ${verifyAccess != null}, refreshToken: ${verifyRefresh != null}',
-    );
+    debugPrint('[SecureStorage] saveTokens: tokens saved');
   }
 
   /// 清除所有 Token
@@ -163,10 +88,11 @@ class SecureStorageService {
     cachedAccessToken = null;
     cachedRefreshToken = null;
     debugPrint('[SecureStorage] clearTokens: cleared memory cache');
+    final prefs = await _getPrefs();
     await Future.wait([
-      _delete(_accessTokenKey),
-      _delete(_refreshTokenKey),
-      _delete(_tokenExpiresAtKey),
+      prefs.remove(_accessTokenKey),
+      prefs.remove(_refreshTokenKey),
+      prefs.remove(_tokenExpiresAtKey),
     ]);
   }
 
@@ -178,7 +104,8 @@ class SecureStorageService {
 
   /// 获取 Token 过期时间
   Future<DateTime?> getTokenExpiresAt() async {
-    final expiresAt = await _read(_tokenExpiresAtKey);
+    final prefs = await _getPrefs();
+    final expiresAt = prefs.getString(_tokenExpiresAtKey);
     if (expiresAt == null) return null;
     return DateTime.tryParse(expiresAt);
   }
