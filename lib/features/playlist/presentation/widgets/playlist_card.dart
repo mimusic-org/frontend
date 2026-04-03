@@ -116,11 +116,12 @@ class PlaylistCard extends StatelessWidget {
                     final maxH = constraints.maxHeight;
                     // 根据可用高度决定显示内容，避免溢出
                     // titleSmall ~20px, bodySmall ~16px, label ~22px, spacing 2px
+                    // 歌曲数量始终显示，基础高度: name ~20 + spacing 2 + songCount ~16 = 38
                     final hasDesc = playlist.description?.isNotEmpty == true;
                     final hasLabels = playlist.labels.isNotEmpty;
-                    final showDesc = hasDesc && maxH >= 40;
+                    final showDesc = hasDesc && maxH >= 58;
                     final showLabels =
-                        hasLabels && maxH >= (showDesc ? 62 : 44);
+                        hasLabels && maxH >= (showDesc ? 82 : 62);
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,6 +132,16 @@ class PlaylistCard extends StatelessWidget {
                           playlist.name,
                           style: textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        // 歌曲数量
+                        Text(
+                          '${playlist.songCount} 首歌曲',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

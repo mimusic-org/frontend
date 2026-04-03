@@ -7,6 +7,7 @@ class Playlist {
   final String? coverPath;
   final String? coverUrl;
   final List<String> labels; // ["built_in"] 或 ["auto_created"]
+  final int songCount;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -18,6 +19,7 @@ class Playlist {
     this.coverPath,
     this.coverUrl,
     this.labels = const [],
+    this.songCount = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -30,16 +32,20 @@ class Playlist {
       description: json['description'] as String?,
       coverPath: json['cover_path'] as String?,
       coverUrl: json['cover_url'] as String?,
-      labels: (json['labels'] as List<dynamic>?)
+      labels:
+          (json['labels'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
-          : DateTime.now(),
+      songCount: json['song_count'] as int? ?? 0,
+      createdAt:
+          json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : DateTime.now(),
+      updatedAt:
+          json['updated_at'] != null
+              ? DateTime.parse(json['updated_at'] as String)
+              : DateTime.now(),
     );
   }
 
@@ -52,6 +58,7 @@ class Playlist {
       'cover_path': coverPath,
       'cover_url': coverUrl,
       'labels': labels,
+      'song_count': songCount,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -65,6 +72,7 @@ class Playlist {
     String? coverPath,
     String? coverUrl,
     List<String>? labels,
+    int? songCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -76,6 +84,7 @@ class Playlist {
       coverPath: coverPath ?? this.coverPath,
       coverUrl: coverUrl ?? this.coverUrl,
       labels: labels ?? this.labels,
+      songCount: songCount ?? this.songCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -102,13 +111,11 @@ class PlaylistListResponse {
   final List<Playlist> playlists;
   final int total;
 
-  const PlaylistListResponse({
-    required this.playlists,
-    required this.total,
-  });
+  const PlaylistListResponse({required this.playlists, required this.total});
 
   factory PlaylistListResponse.fromJson(Map<String, dynamic> json) {
-    final playlistsList = (json['playlists'] as List<dynamic>?)
+    final playlistsList =
+        (json['playlists'] as List<dynamic>?)
             ?.map((e) => Playlist.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
