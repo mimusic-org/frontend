@@ -270,10 +270,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _showApiUrlDialog() async {
     // 先加载当前值
+    String oldUrl = '';
     try {
       final prefs = await ref.read(appPreferencesProvider.future);
       final currentUrl = prefs.getApiBaseUrl();
-      _apiUrlController.text = currentUrl ?? '';
+      oldUrl = currentUrl ?? '';
+      _apiUrlController.text = oldUrl;
     } catch (e) {
       _apiUrlController.text = '';
     }
@@ -312,14 +314,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   final dialogContext = context;
                   try {
                     final prefs = await ref.read(appPreferencesProvider.future);
+                    final urlBeforeReset = prefs.getApiBaseUrl() ?? '';
                     await prefs.clearApiBaseUrl();
                     _apiUrlController.clear();
                     if (dialogContext.mounted) {
                       Navigator.pop(dialogContext);
-                      ResponsiveSnackBar.show(
-                        dialogContext,
-                        message: '已重置为默认地址',
-                      );
+                    }
+                    if (!mounted) return;
+                    if (urlBeforeReset.isNotEmpty) {
+                      // 地址从有值变为空（重置），需要重新登录
+                      AppConfig.baseUrl = '';
+                      ref.invalidate(dioProvider);
+                      await ref.read(authStateProvider.notifier).logout();
+                      if (mounted) {
+                        ResponsiveSnackBar.show(
+                          this.context,
+                          message: 'API 地址已重置，请重新登录',
+                        );
+                      }
+                    } else {
+                      if (mounted) {
+                        ResponsiveSnackBar.show(
+                          this.context,
+                          message: '已重置为默认地址',
+                        );
+                      }
                     }
                   } catch (e) {
                     if (dialogContext.mounted) {
@@ -356,10 +375,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     }
                     if (dialogContext.mounted) {
                       Navigator.pop(dialogContext);
-                      ResponsiveSnackBar.show(
-                        dialogContext,
-                        message: 'API 地址已更新，重启应用后生效',
-                      );
+                    }
+                    if (!mounted) return;
+                    if (url != oldUrl) {
+                      // 地址发生变化，更新运行时配置并退出登录
+                      AppConfig.baseUrl = url;
+                      ref.invalidate(dioProvider);
+                      await ref.read(authStateProvider.notifier).logout();
+                      if (mounted) {
+                        ResponsiveSnackBar.show(
+                          this.context,
+                          message: 'API 地址已更新，请重新登录',
+                        );
+                      }
+                    } else {
+                      if (mounted) {
+                        ResponsiveSnackBar.show(
+                          this.context,
+                          message: 'API 地址已更新',
+                        );
+                      }
                     }
                   } catch (e) {
                     if (dialogContext.mounted) {

@@ -8,6 +8,8 @@ class AppPreferences {
   static const _lastUsedDeviceKey = 'last_used_device';
   static const _volumeKey = 'player_volume';
   static const _playModeKey = 'player_play_mode';
+  static const _lastUsernameKey = 'last_username';
+  static const _lastPasswordKey = 'last_password';
 
   final SharedPreferences _prefs;
 
@@ -97,6 +99,26 @@ class AppPreferences {
   /// 设置播放模式
   Future<bool> setPlayMode(String mode) {
     return _prefs.setString(_playModeKey, mode);
+  }
+
+  /// 获取上次登录的用户名
+  String? getLastUsername() {
+    return _prefs.getString(_lastUsernameKey);
+  }
+
+  /// 设置上次登录的用户名
+  Future<bool> setLastUsername(String username) {
+    return _prefs.setString(_lastUsernameKey, username);
+  }
+
+  /// 获取上次登录的密码
+  String? getLastPassword() {
+    return _prefs.getString(_lastPasswordKey);
+  }
+
+  /// 设置上次登录的密码
+  Future<bool> setLastPassword(String password) {
+    return _prefs.setString(_lastPasswordKey, password);
   }
 
   /// 清除所有偏好设置

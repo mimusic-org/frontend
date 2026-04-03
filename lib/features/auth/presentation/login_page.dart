@@ -38,6 +38,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (!AppConfig.isEmbedded) {
       _loadSavedApiUrl();
     }
+    _loadSavedCredentials();
   }
 
   Future<void> _loadSavedApiUrl() async {
@@ -45,6 +46,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final savedUrl = prefs.getApiBaseUrl();
     if (savedUrl != null && savedUrl.isNotEmpty) {
       _apiUrlController.text = savedUrl;
+    }
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await ref.read(appPreferencesProvider.future);
+    final savedUsername = prefs.getLastUsername();
+    final savedPassword = prefs.getLastPassword();
+    if (savedUsername != null && savedUsername.isNotEmpty) {
+      _usernameController.text = savedUsername;
+    }
+    if (savedPassword != null && savedPassword.isNotEmpty) {
+      _passwordController.text = savedPassword;
     }
   }
 

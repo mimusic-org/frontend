@@ -25,10 +25,7 @@ final authApiProvider = Provider<AuthApi>((ref) {
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final authApi = ref.watch(authApiProvider);
   final secureStorage = ref.watch(secureStorageProvider);
-  return AuthRepository(
-    authApi: authApi,
-    secureStorage: secureStorage,
-  );
+  return AuthRepository(authApi: authApi, secureStorage: secureStorage);
 });
 
 /// 认证状态 Notifier
@@ -114,6 +111,11 @@ class AuthNotifier extends Notifier<AuthState> {
         expiresIn: tokens.expiresIn,
       );
 
+      // 登录成功后保存账号密码
+      final prefs = await ref.read(appPreferencesProvider.future);
+      await prefs.setLastUsername(username);
+      await prefs.setLastPassword(password);
+
       state = state.authenticated();
     } on ApiException catch (e) {
       state = state.unauthenticated(e.message);
@@ -144,7 +146,9 @@ class AuthNotifier extends Notifier<AuthState> {
 }
 
 /// 认证状态 Provider
-final authStateProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authStateProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 /// 是否已认证 Provider
 final isAuthenticatedProvider = Provider<bool>((ref) {
