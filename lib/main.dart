@@ -1,11 +1,11 @@
 import 'dart:io' show Platform;
 import 'dart:ui';
 
-
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'config/app_config.dart';
@@ -23,6 +23,12 @@ final audioHandlerProvider = Provider<MiMusicAudioHandler>((ref) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Windows 和 Linux 平台需要 media_kit 作为 just_audio 的后端
+  // 必须在 AudioService.init() 之前调用
+  if (!kIsWeb) {
+    JustAudioMediaKit.ensureInitialized();
+  }
 
   // 全局异常处理，防止未捕获异常导致白屏
   FlutterError.onError = (FlutterErrorDetails details) {
