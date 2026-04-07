@@ -295,8 +295,9 @@ class _LyricsViewState extends State<LyricsView> {
             Text(
               '正在加载歌词...',
               style: theme.textTheme.bodyLarge?.copyWith(
-                color:
-                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.6,
+                ),
               ),
             ),
           ],
