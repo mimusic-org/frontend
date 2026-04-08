@@ -77,6 +77,52 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
+  /// 自动按名称排序
+  Future<void> _autoSortByName(List<Song> songs, {bool ascending = true}) async {
+    final sorted = List<Song>.from(songs);
+    sorted.sort((a, b) {
+      final result = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      return ascending ? result : -result;
+    });
+
+    final songIds = sorted.map((s) => s.id).toList();
+
+    // 检查排序前后是否有变化，避免无意义的 API 调用
+    final originalIds = songs.map((s) => s.id).toList();
+    if (_listEquals(songIds, originalIds)) {
+      if (mounted) {
+        ResponsiveSnackBar.show(context, message: '歌曲已是该排序顺序');
+      }
+      return;
+    }
+
+    final notifier = ref.read(playlistNotifierProvider.notifier);
+    final success = await notifier.reorderPlaylistSongs(
+      _playlistIdInt,
+      songIds,
+    );
+
+    if (mounted) {
+      if (success) {
+        ResponsiveSnackBar.showSuccess(
+          context,
+          message: ascending ? '已按名称升序排列' : '已按名称降序排列',
+        );
+      } else {
+        ResponsiveSnackBar.showError(context, message: '排序失败');
+      }
+    }
+  }
+
+  /// 比较两个整数列表是否相等
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   /// 取消排序模式（不保存）
   void _cancelSortMode() {
     setState(() {
@@ -439,10 +485,51 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     return [
       // 排序按钮（歌曲数 > 1 时显示）
       if (songs.length > 1)
-        IconButton(
+        PopupMenuButton<String>(
           icon: const Icon(Icons.sort),
           tooltip: '排序',
-          onPressed: () => _enterSortMode(songs),
+          onSelected: (value) {
+            switch (value) {
+              case 'name_asc':
+                _autoSortByName(songs, ascending: true);
+                break;
+              case 'name_desc':
+                _autoSortByName(songs, ascending: false);
+                break;
+              case 'manual':
+                _enterSortMode(songs);
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'name_asc',
+              child: ListTile(
+                leading: Icon(Icons.sort_by_alpha),
+                title: Text('按名称排序 A→Z'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'name_desc',
+              child: ListTile(
+                leading: Icon(Icons.sort_by_alpha),
+                title: Text('按名称排序 Z→A'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'manual',
+              child: ListTile(
+                leading: Icon(Icons.drag_handle),
+                title: Text('手动排序'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
         ),
       // 多选按钮（有歌曲时显示）
       if (songs.isNotEmpty)
