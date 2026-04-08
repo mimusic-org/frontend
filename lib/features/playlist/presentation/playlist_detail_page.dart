@@ -114,6 +114,62 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     }
   }
 
+  /// 提取标题中第一个出现的数字（支持开头和中间位置）
+  /// 例如: "04.校园故事" → 4, "干得漂亮 | 01 好意被辜负" → 1
+  /// 如果没有数字，返回 null
+  int? _extractFirstNumber(String title) {
+    final match = RegExp(r'(\d+)').firstMatch(title);
+    if (match == null) return null;
+    return int.tryParse(match.group(1)!);
+  }
+
+  /// 自动按数字前缀排序
+  Future<void> _autoSortByNumberPrefix(List<Song> songs) async {
+    final sorted = List<Song>.from(songs);
+    sorted.sort((a, b) {
+      final numA = _extractFirstNumber(a.title);
+      final numB = _extractFirstNumber(b.title);
+
+      // 都有数字前缀：按数值排序
+      if (numA != null && numB != null) {
+        final cmp = numA.compareTo(numB);
+        if (cmp != 0) return cmp;
+        // 数值相同时按标题字母序
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      }
+      // 有数字前缀的排在前面
+      if (numA != null) return -1;
+      if (numB != null) return 1;
+      // 都没有数字前缀：按标题字母序
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+
+    final songIds = sorted.map((s) => s.id).toList();
+
+    // 检查排序前后是否有变化
+    final originalIds = songs.map((s) => s.id).toList();
+    if (_listEquals(songIds, originalIds)) {
+      if (mounted) {
+        ResponsiveSnackBar.show(context, message: '歌曲已是该排序顺序');
+      }
+      return;
+    }
+
+    final notifier = ref.read(playlistNotifierProvider.notifier);
+    final success = await notifier.reorderPlaylistSongs(
+      _playlistIdInt,
+      songIds,
+    );
+
+    if (mounted) {
+      if (success) {
+        ResponsiveSnackBar.showSuccess(context, message: '已按数字前缀排序');
+      } else {
+        ResponsiveSnackBar.showError(context, message: '排序失败');
+      }
+    }
+  }
+
   /// 比较两个整数列表是否相等
   bool _listEquals(List<int> a, List<int> b) {
     if (a.length != b.length) return false;
@@ -496,6 +552,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               case 'name_desc':
                 _autoSortByName(songs, ascending: false);
                 break;
+              case 'number_asc':
+                _autoSortByNumberPrefix(songs);
+                break;
               case 'manual':
                 _enterSortMode(songs);
                 break;
@@ -516,6 +575,15 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
               child: ListTile(
                 leading: Icon(Icons.sort_by_alpha),
                 title: Text('按名称排序 Z→A'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'number_asc',
+              child: ListTile(
+                leading: Icon(Icons.format_list_numbered),
+                title: Text('按数字前缀排序'),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
