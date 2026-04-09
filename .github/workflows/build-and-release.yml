@@ -299,6 +299,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以生成 changelog
 
       - name: Determine release info
         id: release_info
@@ -316,6 +318,36 @@ jobs:
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
             echo "make_latest=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Get previous tag
+        id: prev-tag
+        run: |
+          CURRENT_TAG="${{ steps.release_info.outputs.tag }}"
+
+          # 获取所有按创建时间排序的 tag，找到当前 tag 的前一个
+          PREV_TAG=$(git --no-pager tag --sort=creatordate --merged HEAD | grep -v "^${CURRENT_TAG}$" | tail -1)
+
+          if [ -z "$PREV_TAG" ]; then
+            # 如果没有上一个 tag，使用第一个 commit
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+            echo "No previous tag found, using first commit: ${PREV_TAG}"
+          else
+            echo "Previous tag: ${PREV_TAG}"
+          fi
+
+          echo "previous_tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Generate Changelog from Conventional Commits
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ github.token }}
+          fromTag: ${{ steps.release_info.outputs.tag }}
+          toTag: ${{ steps.prev-tag.outputs.previous_tag }}
+          writeToFile: false
+          useGitmojis: true
+          includeInvalidCommits: false
+          restrictToTypes: feat,fix,docs,style,refactor,perf,test,build,ci,chore,revert
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -343,17 +375,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="${{ steps.release_info.outputs.tag }}"
+          TITLE="${{ steps.release_info.outputs.name }}"
+          IS_PRERELEASE="${{ steps.release_info.outputs.prerelease }}"
+          MAKE_LATEST="${{ steps.release_info.outputs.make_latest }}"
+
+          # 构建 Release Notes
+          RELEASE_NOTES="${{ steps.changelog.outputs.changes }}"
+
+          # 如果 changelog 为空，使用默认内容
+          if [ -z "$RELEASE_NOTES" ] || [ "$RELEASE_NOTES" = "" ]; then
+            if [[ "${IS_PRERELEASE}" == "true" ]]; then
+              RELEASE_NOTES="Development build from branch: ${{ github.ref_name }}"
+            else
+              RELEASE_NOTES="Release ${TAG}"
+            fi
+          fi
+
           ARGS=(
-            "${{ steps.release_info.outputs.tag }}"
-            --title "${{ steps.release_info.outputs.name }}"
-            --generate-notes
+            "${TAG}"
+            --title "${TITLE}"
+            --notes "${RELEASE_NOTES}"
           )
 
-          if [[ "${{ steps.release_info.outputs.prerelease }}" == "true" ]]; then
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
             ARGS+=(--prerelease)
           fi
 
-          if [[ "${{ steps.release_info.outputs.make_latest }}" == "true" ]]; then
+          if [[ "${MAKE_LATEST}" == "true" ]]; then
             ARGS+=(--latest)
           fi
 
