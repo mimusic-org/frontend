@@ -121,6 +121,10 @@ build_web() {
         if [ ! -d "$FRONTEND_DIR/web/fonts/roboto/v32" ] || [ -z "$(ls -A "$FRONTEND_DIR/web/fonts/roboto/v32" 2>/dev/null)" ]; then
             need_download=true
         fi
+        # 检查 Noto Sans SC 分片 woff2 是否已下载（CanvasKit fallback 中文字体）
+        if [ ! -d "$FRONTEND_DIR/web/fonts/notosanssc/v37" ] || [ -z "$(ls -A "$FRONTEND_DIR/web/fonts/notosanssc/v37" 2>/dev/null)" ]; then
+            need_download=true
+        fi
 
         if [ "$need_download" = true ]; then
             echo -e "${BLUE}[Web]${NC} 下载本地字体文件..."
