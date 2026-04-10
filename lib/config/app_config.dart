@@ -16,4 +16,21 @@ class AppConfig {
   /// 是否为嵌入模式（Flutter Web 打包进 Go 二进制）
   /// 编译时常量，tree-shaking 会移除未使用的分支代码
   static const bool isEmbedded = _kDeployMode == 'embedded';
+
+  /// 前端版本号，通过 --dart-define=FRONTEND_VERSION=x.y.z 在构建时注入
+  /// 本地开发时默认为 'dev'
+  static const String frontendVersion =
+      String.fromEnvironment('FRONTEND_VERSION', defaultValue: 'dev');
+
+  /// 前端 GitHub 仓库
+  static const String frontendRepo = 'mimusic-org/frontend';
+
+  /// 前端最新发布地址
+  static const String frontendReleasesUrl =
+      'https://github.com/mimusic-org/frontend/releases/latest';
+
+  /// 格式化前端版本号用于显示
+  /// 'dev' -> '开发版本', '1.0.14' -> 'v1.0.14'
+  static String get frontendVersionDisplay =>
+      frontendVersion == 'dev' ? '开发版本' : 'v$frontendVersion';
 }

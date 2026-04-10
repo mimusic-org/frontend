@@ -61,7 +61,12 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build web --release --no-web-resources-cdn --dart-define=DEPLOY_MODE=${{ matrix.mode }}
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: flutter build web --release --no-web-resources-cdn --dart-define=DEPLOY_MODE=${{ matrix.mode }} --dart-define=FRONTEND_VERSION=${{ steps.version.outputs.version }}
       - name: Package
         run: |
           cd build/web
@@ -100,7 +105,12 @@ jobs:
       - name: Add pub cache to PATH
         run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
       - run: flutter pub get
-      - run: flutter build linux --release
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: flutter build linux --release --dart-define=FRONTEND_VERSION=${{ steps.version.outputs.version }}
       - name: Prepare app icon for fastforge
         run: |
           mkdir -p assets/icons
@@ -159,7 +169,14 @@ jobs:
         shell: pwsh
         run: echo "$env:LOCALAPPDATA\Pub\Cache\bin" >> $env:GITHUB_PATH
       - run: flutter pub get
-      - run: flutter build windows --release
+      - name: Extract version from pubspec.yaml
+        id: version
+        shell: pwsh
+        run: |
+          $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:' | Select-Object -First 1
+          $version = ($versionLine -replace 'version:\s*', '') -replace '\+.*', ''
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+      - run: flutter build windows --release --dart-define=FRONTEND_VERSION=${{ steps.version.outputs.version }}
       - name: Package ZIP (绿色便携包)
         shell: pwsh
         run: |
@@ -198,7 +215,12 @@ jobs:
       - name: Add pub cache to PATH
         run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
       - run: flutter pub get
-      - run: flutter build macos --release
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: flutter build macos --release --dart-define=FRONTEND_VERSION=${{ steps.version.outputs.version }}
       - name: Package ZIP (.app)
         run: |
           cd build/macos/Build/Products/Release
@@ -234,6 +256,11 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Setup Android signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -247,7 +274,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --dart-define=FRONTEND_VERSION=${{ steps.version.outputs.version }}
       - name: Collect APKs
         run: |
           mkdir -p apk-output
@@ -271,7 +298,12 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build ios --release --no-codesign
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: flutter build ios --release --no-codesign --dart-define=FRONTEND_VERSION=${{ steps.version.outputs.version }}
       - name: Package as IPA
         run: |
           mkdir -p Payload

@@ -38,6 +38,7 @@ dependencies:
   # 工具
   intl: ^0.20.2
   url_launcher: ^6.3.1
+  flutter_markdown: ^0.7.6
   # WebView（用于应用内加载插件页面）
   flutter_inappwebview: ^6.1.5
   json_annotation: ^4.9.0
@@ -54,6 +55,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icons/app_icon.png
   fonts:
     - family: NotoSansSC
       fonts:

@@ -8,6 +8,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/config_api.dart';
 import '../../data/plugin_api.dart';
 import '../../data/scan_api.dart';
+import '../../data/frontend_version_api.dart';
 import '../../data/upgrade_api.dart';
 
 // ============================================================================
@@ -38,6 +39,11 @@ final upgradeApiProvider = Provider<UpgradeApi>((ref) {
   return UpgradeApi(dio: dio);
 });
 
+/// FrontendVersionApi Provider（使用独立 Dio，不依赖后端认证）
+final frontendVersionApiProvider = Provider<FrontendVersionApi>((ref) {
+  return FrontendVersionApi();
+});
+
 // ============================================================================
 // Data Providers
 // ============================================================================
@@ -54,10 +60,17 @@ final pluginsProvider = FutureProvider<List<Plugin>>((ref) async {
   return pluginApi.getPlugins();
 });
 
-/// 检查更新
+/// 检查服务端更新
 final upgradeCheckProvider = FutureProvider<UpgradeCheck>((ref) async {
   final upgradeApi = ref.watch(upgradeApiProvider);
   return upgradeApi.checkUpgrade();
+});
+
+/// 检查前端（客户端）更新
+final frontendVersionCheckProvider =
+    FutureProvider<FrontendVersionCheck>((ref) async {
+  final api = ref.watch(frontendVersionApiProvider);
+  return api.checkUpdate();
 });
 
 // ============================================================================

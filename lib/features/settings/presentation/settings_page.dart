@@ -13,8 +13,10 @@ import 'widgets/config_manager.dart';
 import 'widgets/plugin_manager.dart';
 import 'widgets/scan_manager.dart';
 import 'widgets/theme_selector.dart';
+import 'widgets/frontend_upgrade_dialog.dart';
 import 'widgets/token_manager.dart';
 import 'widgets/upgrade_dialog.dart';
+import 'providers/settings_provider.dart';
 
 /// 设置页面
 class SettingsPage extends ConsumerStatefulWidget {
@@ -142,12 +144,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             icon: Icons.settings_outlined,
             children: [
               ListTile(
-                leading: const Icon(Icons.system_update),
-                title: const Text('检查更新'),
-                subtitle: const Text('检查是否有新版本'),
+                leading: const Icon(Icons.dns),
+                title: const Text('检查服务端更新'),
+                subtitle: const Text('检查后端服务是否有新版本（仅 Docker）'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => UpgradeDialog.show(context),
               ),
+              const Divider(height: 1),
+              _buildFrontendUpdateTile(),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.info_outline),
@@ -211,6 +215,65 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (confirmed == true) {
       await ref.read(authStateProvider.notifier).logout();
     }
+  }
+
+  /// 构建前端（客户端）更新检测入口
+  Widget _buildFrontendUpdateTile() {
+    final frontendCheck = ref.watch(frontendVersionCheckProvider);
+    final versionDisplay = AppConfig.frontendVersionDisplay;
+
+    return frontendCheck.when(
+      data: (check) {
+        final subtitle = check.hasUpdate
+            ? '发现新版本: v${check.latestVersion}'
+            : '当前版本: $versionDisplay (已是最新)';
+
+        return ListTile(
+          leading: const Icon(Icons.phone_android),
+          title: const Text('检查客户端更新'),
+          subtitle: Text(
+            subtitle,
+            style: check.hasUpdate
+                ? TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  )
+                : null,
+          ),
+          trailing: check.hasUpdate
+              ? Icon(Icons.chevron_right,
+                  color: Theme.of(context).colorScheme.primary)
+              : const Icon(Icons.chevron_right),
+          onTap: () {
+            if (check.hasUpdate) {
+              FrontendUpgradeDialog.show(context, versionCheck: check);
+            } else {
+              ResponsiveSnackBar.show(
+                context,
+                message: '当前已是最新版本 $versionDisplay',
+              );
+            }
+          },
+        );
+      },
+      loading: () => ListTile(
+        leading: const Icon(Icons.phone_android),
+        title: const Text('检查客户端更新'),
+        subtitle: Text('当前版本: $versionDisplay'),
+        trailing: const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (_, _) => ListTile(
+        leading: const Icon(Icons.phone_android),
+        title: const Text('检查客户端更新'),
+        subtitle: Text('当前版本: $versionDisplay'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => ref.invalidate(frontendVersionCheckProvider),
+      ),
+    );
   }
 
   Widget _buildSectionCard({
@@ -447,21 +510,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       applicationName: 'MiMusic',
       applicationVersion: version,
-      applicationIcon: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF06B6D4), Color(0xFF8B5CF6)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.music_note_rounded,
-          size: 28,
-          color: Colors.white,
+      applicationIcon: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.asset(
+          'assets/icons/app_icon.png',
+          width: 48,
+          height: 48,
         ),
       ),
       applicationLegalese: '© 2024-2026 MiMusic. All rights reserved.',
