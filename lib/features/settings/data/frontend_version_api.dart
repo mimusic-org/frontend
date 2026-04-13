@@ -46,14 +46,15 @@ class FrontendVersionApi {
       'https://api.github.com/repos/${AppConfig.frontendRepo}/releases/latest';
 
   FrontendVersionApi({Dio? dio})
-      : _dio = dio ??
-            Dio(BaseOptions(
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
               connectTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
-              headers: {
-                'Accept': 'application/vnd.github.v3+json',
-              },
-            ));
+              headers: {'Accept': 'application/vnd.github.v3+json'},
+            ),
+          );
 
   /// 检查前端是否有新版本
   Future<FrontendVersionCheck> checkUpdate() async {
@@ -64,7 +65,7 @@ class FrontendVersionApi {
       // 解析 tag_name，去掉 v 前缀
       final tagName = data['tag_name'] as String? ?? '';
       final latestVersion = _normalizeVersion(tagName);
-      final currentVersion = AppConfig.frontendVersion;
+      const currentVersion = AppConfig.frontendVersion;
 
       // 解析发布说明，将 gitmoji 短代码转换为 Unicode emoji
       final rawNotes = data['body'] as String?;
@@ -114,8 +115,10 @@ class FrontendVersionApi {
     if (latest.isEmpty) return false;
 
     // 简单的版本号比较（语义化版本）
-    final currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final latestParts = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final currentParts =
+        current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final latestParts =
+        latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
     // 补齐长度
     while (currentParts.length < 3) {

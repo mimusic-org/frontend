@@ -33,7 +33,10 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
     _ProxyOption(label: 'ghproxy.com', value: 'https://ghproxy.com/'),
     _ProxyOption(label: 'ghfast.top', value: 'https://ghfast.top/'),
     _ProxyOption(label: 'gh.con.sh', value: 'https://gh.con.sh/'),
-    _ProxyOption(label: 'mirror.ghproxy.com', value: 'https://mirror.ghproxy.com/'),
+    _ProxyOption(
+      label: 'mirror.ghproxy.com',
+      value: 'https://mirror.ghproxy.com/',
+    ),
   ];
 
   bool _isChecking = true;
@@ -57,7 +60,8 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
     if (_selectedProxyIndex == -1) {
       return _customProxyController.text.trim();
     }
-    if (_selectedProxyIndex >= 0 && _selectedProxyIndex < _presetProxies.length) {
+    if (_selectedProxyIndex >= 0 &&
+        _selectedProxyIndex < _presetProxies.length) {
       return _presetProxies[_selectedProxyIndex].value;
     }
     return '';
@@ -92,11 +96,9 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
 
     try {
       final upgradeApi = ref.read(upgradeApiProvider);
-      final result = await upgradeApi.checkUpgrade(
-        githubProxy: proxy.isNotEmpty ? proxy : null,
-      ).timeout(
-        const Duration(seconds: 15),
-      );
+      final result = await upgradeApi
+          .checkUpgrade(githubProxy: proxy.isNotEmpty ? proxy : null)
+          .timeout(const Duration(seconds: 15));
       if (mounted) setState(() => _checkResult = result);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -132,10 +134,12 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
 
     try {
       final proxy = _effectiveProxy;
-      await ref.read(upgradeProgressProvider.notifier).startUpgrade(
-        versionType: version.type,
-        githubProxy: proxy.isNotEmpty ? proxy : null,
-      );
+      await ref
+          .read(upgradeProgressProvider.notifier)
+          .startUpgrade(
+            versionType: version.type,
+            githubProxy: proxy.isNotEmpty ? proxy : null,
+          );
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -149,20 +153,21 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
     // 二次确认
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认回退'),
-        content: const Text('确定要回退到 Docker 镜像的底包版本吗？\n\n回退后服务将自动重启。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('确认回退'),
+            content: const Text('确定要回退到 Docker 镜像的底包版本吗？\n\n回退后服务将自动重启。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('确认回退'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('确认回退'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true || !mounted) return;
@@ -309,13 +314,13 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
               padding: const EdgeInsets.only(left: 16, top: 4),
               child: TextField(
                 controller: _customProxyController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'https://your-proxy.com/',
                   helperText: '输入代理地址，如 https://ghproxy.com/',
                   helperMaxLines: 2,
                   isDense: true,
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
@@ -375,10 +380,13 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
                 '${update.label} (${update.version})',
                 style: theme.textTheme.bodyMedium,
               ),
-              subtitle: update.buildTime != null
-                  ? Text('构建时间: ${update.buildTime}',
-                      style: theme.textTheme.bodySmall)
-                  : null,
+              subtitle:
+                  update.buildTime != null
+                      ? Text(
+                        '构建时间: ${update.buildTime}',
+                        style: theme.textTheme.bodySmall,
+                      )
+                      : null,
               value: index,
               groupValue: _selectedVersionIndex,
               dense: true,
@@ -449,13 +457,14 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
   Widget _buildResetButton(ThemeData theme) {
     return OutlinedButton.icon(
       onPressed: _isResetting ? null : _resetToBaseImage,
-      icon: _isResetting
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.restore, size: 18),
+      icon:
+          _isResetting
+              ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : const Icon(Icons.restore, size: 18),
       label: Text(_isResetting ? '正在回退...' : '回退到底包版本'),
       style: OutlinedButton.styleFrom(
         foregroundColor: theme.colorScheme.error,
