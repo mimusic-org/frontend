@@ -99,15 +99,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           const SizedBox(height: 16),
 
-          // 分组: 缓存管理
-          _buildSectionCard(
-            title: '缓存管理',
-            icon: Icons.storage_outlined,
-            children: [const CacheManager()],
-          ),
-
-          const SizedBox(height: 16),
-
           // 分组3: 服务器配置（嵌入模式下隐藏，独立部署时显示）
           if (!AppConfig.isEmbedded)
             _buildSectionCard(
@@ -148,6 +139,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
           const SizedBox(height: 16),
 
+          // 分组: 缓存管理
+          _buildSectionCard(
+            title: '缓存管理',
+            icon: Icons.storage_outlined,
+            children: [const CacheManager()],
+          ),
+
+          const SizedBox(height: 16),
+
           // 分组6: 系统
           _buildSectionCard(
             title: '系统',
@@ -172,6 +172,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             title: '账户',
             icon: Icons.account_circle_outlined,
             children: [
+              if (!AppConfig.isEmbedded) ...[
+                ListTile(
+                  leading: const Icon(Icons.link),
+                  title: const Text('API 地址'),
+                  subtitle: _buildApiUrlSubtitle(),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _showApiUrlDialog,
+                ),
+                const Divider(height: 1),
+              ],
               ListTile(
                 leading: Icon(
                   Icons.logout,
