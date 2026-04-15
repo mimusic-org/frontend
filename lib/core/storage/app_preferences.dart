@@ -132,6 +132,19 @@ class AppPreferences {
     return _prefs.setString(_lastPasswordKey, password);
   }
 
+  /// 本地缓存大小上限 key
+  static const _localCacheMaxSizeKey = 'local_cache_max_size';
+
+  /// 获取本地缓存大小上限（字节），默认 1 GB，0 表示不限制
+  int getLocalCacheMaxSize() {
+    return _prefs.getInt(_localCacheMaxSizeKey) ?? (1024 * 1024 * 1024);
+  }
+
+  /// 设置本地缓存大小上限（字节），0 表示不限制
+  Future<bool> setLocalCacheMaxSize(int maxSize) {
+    return _prefs.setInt(_localCacheMaxSizeKey, maxSize);
+  }
+
   /// 清除所有偏好设置
   Future<bool> clear() {
     return _prefs.clear();

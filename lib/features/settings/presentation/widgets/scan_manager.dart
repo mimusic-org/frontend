@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/utils/responsive_snackbar.dart';
 import '../../data/scan_api.dart';
 import '../providers/settings_provider.dart';
@@ -22,7 +23,6 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
   @override
   void initState() {
     super.initState();
-    // 初始化时刷新进度状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(scanProgressProvider.notifier).refreshProgress();
     });
@@ -66,6 +66,10 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
     setState(() => _error = null);
   }
 
+  String get _modeDescription {
+    return _scanMode == 'skip' ? '仅导入新发现的音乐文件' : '重新扫描并覆盖所有音乐信息';
+  }
+
   @override
   Widget build(BuildContext context) {
     final progress = ref.watch(scanProgressProvider);
@@ -81,7 +85,7 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Row(
               children: [
@@ -114,34 +118,76 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
     );
   }
 
+  /// 构建空闲状态 UI（扫描模式选择 + 扫描按钮）
   Widget _buildIdleState() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 扫描模式选择器
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'skip', label: Text('跳过已存在')),
-            ButtonSegment(value: 'reimport', label: Text('重新导入')),
-          ],
-          selected: {_scanMode},
-          onSelectionChanged: (selected) {
-            setState(() => _scanMode = selected.first);
-          },
+        // 带图标的 SegmentedButton（全宽）
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'skip',
+                label: Text('跳过已存在'),
+                icon: Icon(Icons.skip_next_outlined),
+              ),
+              ButtonSegment(
+                value: 'reimport',
+                label: Text('重新导入'),
+                icon: Icon(Icons.refresh_outlined),
+              ),
+            ],
+            selected: {_scanMode},
+            onSelectionChanged: (selected) {
+              setState(() => _scanMode = selected.first);
+            },
+          ),
         ),
-        const SizedBox(height: 12),
-        // 扫描按钮
-        FilledButton.icon(
-          onPressed: _isLoading ? null : _startScan,
-          icon:
-              _isLoading
-                  ? const SizedBox(
+        const SizedBox(height: AppSpacing.sm),
+
+        // 当前模式描述文字
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _modeDescription,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // 全宽扫描按钮
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _isLoading ? null : _startScan,
+            icon: _isLoading
+                ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                  : const Icon(Icons.search),
-          label: Text(_isLoading ? '正在启动...' : '扫描本地音乐'),
+                : const Icon(Icons.search),
+            label: Text(_isLoading ? '正在启动...' : '扫描本地音乐'),
+          ),
         ),
       ],
     );
@@ -151,15 +197,12 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 进度条
         LinearProgressIndicator(
           value: progress.progress / 100,
           minHeight: 8,
           borderRadius: BorderRadius.circular(4),
         ),
         const SizedBox(height: 12),
-
-        // 当前文件
         if (progress.currentFile != null)
           Text(
             '正在扫描: ${progress.currentFile}',
@@ -168,15 +211,11 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
             overflow: TextOverflow.ellipsis,
           ),
         const SizedBox(height: 4),
-
-        // 统计信息
         Text(
           '已处理: ${progress.scannedFiles}/${progress.totalFiles}, 导入: ${progress.importedFiles}, 跳过: ${progress.skippedFiles}, 失败: ${progress.failedFiles}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
-
-        // 取消按钮
         OutlinedButton.icon(
           onPressed: _cancelScan,
           icon: const Icon(Icons.cancel),
@@ -196,7 +235,7 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
           child: Row(
             children: [
@@ -218,28 +257,51 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
           ),
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _reset,
-          icon: const Icon(Icons.refresh),
-          label: const Text('重新扫描'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _reset,
+            icon: const Icon(Icons.refresh),
+            label: const Text('重新扫描'),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildCancelledState(ScanProgress progress) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '扫描已取消 (已处理 ${progress.scannedFiles} 个文件)',
-          style: Theme.of(context).textTheme.bodyMedium,
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.cancel_outlined, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '扫描已取消 (已处理 ${progress.scannedFiles} 个文件)',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _reset,
-          icon: const Icon(Icons.refresh),
-          label: const Text('重新扫描'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _reset,
+            icon: const Icon(Icons.refresh),
+            label: const Text('重新扫描'),
+          ),
         ),
       ],
     );
@@ -255,7 +317,7 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.errorContainer,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
           child: Row(
             children: [
@@ -266,10 +328,13 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
           ),
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _reset,
-          icon: const Icon(Icons.refresh),
-          label: const Text('重试'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _reset,
+            icon: const Icon(Icons.refresh),
+            label: const Text('重试'),
+          ),
         ),
       ],
     );

@@ -9,6 +9,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../shared/utils/responsive_snackbar.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
+import 'widgets/cache_manager.dart';
 import 'widgets/config_manager.dart';
 import 'widgets/plugin_manager.dart';
 import 'widgets/scan_manager.dart';
@@ -94,6 +95,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             children: [
               const Padding(padding: EdgeInsets.all(16), child: ScanManager()),
             ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // 分组: 缓存管理
+          _buildSectionCard(
+            title: '缓存管理',
+            icon: Icons.storage_outlined,
+            children: [const CacheManager()],
           ),
 
           const SizedBox(height: 16),

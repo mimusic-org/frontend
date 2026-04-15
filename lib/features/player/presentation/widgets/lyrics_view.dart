@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../config/app_config.dart';
+import '../../../../core/storage/lyric_cache_service.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../domain/lyric_parser.dart';
 
@@ -133,8 +134,23 @@ class _LyricsViewState extends State<LyricsView> {
     }
   }
 
-  /// 从网络加载歌词
+  /// 从网络加载歌词（集成本地缓存）
   Future<void> _fetchLyricFromUrl(String lyricUrl) async {
+    // 1. 先查本地缓存
+    final cached = await LyricCacheService().get(lyricUrl);
+    if (cached != null) {
+      _fetchedLyricText = cached;
+      _lastFetchedUrl = lyricUrl;
+      if (mounted) {
+        setState(() {
+          _isLoadingFromUrl = false;
+          _loadFailed = false;
+        });
+      }
+      _parseLyrics(cached);
+      return;
+    }
+
     setState(() {
       _isLoadingFromUrl = true;
       _loadFailed = false;
@@ -180,6 +196,11 @@ class _LyricsViewState extends State<LyricsView> {
           _loadFailed = false;
         });
         _parseLyrics(lyricText);
+
+        // 3. 加载成功后写入本地缓存
+        if (lyricText != null && lyricText.isNotEmpty) {
+          await LyricCacheService().put(lyricUrl, lyricText);
+        }
       } else {
         setState(() {
           _isLoadingFromUrl = false;

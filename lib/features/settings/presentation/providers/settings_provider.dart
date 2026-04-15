@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../config/app_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/cache_api.dart';
 import '../../data/config_api.dart';
 import '../../data/plugin_api.dart';
 import '../../data/scan_api.dart';
@@ -43,6 +44,24 @@ final upgradeApiProvider = Provider<UpgradeApi>((ref) {
 /// FrontendVersionApi Provider（使用独立 Dio，不依赖后端认证）
 final frontendVersionApiProvider = Provider<FrontendVersionApi>((ref) {
   return FrontendVersionApi();
+});
+
+/// CacheApi Provider
+final cacheApiProvider = Provider<CacheApi>((ref) {
+  final dio = ref.watch(dioProvider);
+  return CacheApi(dio: dio);
+});
+
+/// 服务端缓存统计
+final serverCacheStatsProvider = FutureProvider<CacheStats>((ref) async {
+  final cacheApi = ref.watch(cacheApiProvider);
+  return cacheApi.getCacheStats();
+});
+
+/// 服务端缓存配置
+final serverCacheConfigProvider = FutureProvider<CacheConfig>((ref) async {
+  final cacheApi = ref.watch(cacheApiProvider);
+  return cacheApi.getCacheConfig();
 });
 
 // ============================================================================

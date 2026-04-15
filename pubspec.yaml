@@ -28,6 +28,7 @@ dependencies:
   permission_handler: ^12.0.1
   # 本地存储
   shared_preferences: ^2.3.4
+  path_provider: ^2.1.0
   # 图片缓存
   cached_network_image: ^3.4.1
   # 颜色提取
