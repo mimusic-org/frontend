@@ -143,13 +143,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             title: '系统',
             icon: Icons.settings_outlined,
             children: [
-              ListTile(
-                leading: const Icon(Icons.dns),
-                title: const Text('检查服务端更新'),
-                subtitle: const Text('检查后端服务是否有新版本（仅 Docker）'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => UpgradeDialog.show(context),
-              ),
+              _buildServerVersionTile(),
               const Divider(height: 1),
               _buildFrontendUpdateTile(),
               const Divider(height: 1),
@@ -215,6 +209,38 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (confirmed == true) {
       await ref.read(authStateProvider.notifier).logout();
     }
+  }
+
+  /// 构建服务端版本号 + 检查更新入口
+  Widget _buildServerVersionTile() {
+    final serverVersion = ref.watch(serverVersionProvider);
+
+    return serverVersion.when(
+      data: (version) => ListTile(
+        leading: const Icon(Icons.dns),
+        title: const Text('检查服务端更新'),
+        subtitle: Text('当前版本: $version（仅 Docker 可升级）'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => UpgradeDialog.show(context),
+      ),
+      loading: () => const ListTile(
+        leading: Icon(Icons.dns),
+        title: Text('检查服务端更新'),
+        subtitle: Text('正在获取版本信息...'),
+        trailing: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (_, _) => ListTile(
+        leading: const Icon(Icons.dns),
+        title: const Text('检查服务端更新'),
+        subtitle: const Text('检查后端服务是否有新版本（仅 Docker）'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => UpgradeDialog.show(context),
+      ),
+    );
   }
 
   /// 构建前端（客户端）更新检测入口

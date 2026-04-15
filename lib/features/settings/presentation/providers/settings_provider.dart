@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../config/app_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/config_api.dart';
@@ -64,6 +65,18 @@ final pluginsProvider = FutureProvider<List<Plugin>>((ref) async {
 final upgradeCheckProvider = FutureProvider<UpgradeCheck>((ref) async {
   final upgradeApi = ref.watch(upgradeApiProvider);
   return upgradeApi.checkUpgrade();
+});
+
+/// 获取服务端版本号
+final serverVersionProvider = FutureProvider<String>((ref) async {
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get('${AppConfig.apiPrefix}/version');
+  final data = response.data as Map<String, dynamic>;
+  final version = data['version'] as String?;
+  if (version != null && version.isNotEmpty) {
+    return version;
+  }
+  return '未知';
 });
 
 /// 检查前端（客户端）更新
