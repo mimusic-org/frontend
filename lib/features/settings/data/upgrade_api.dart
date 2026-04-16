@@ -62,18 +62,26 @@ class UpdateVersionInfo {
 /// 更新检查结果模型
 class UpgradeCheck {
   final bool hasUpdate;
+  final bool isDocker;
   final String? currentVersion;
 
   /// 可用的更新版本列表（stable、dev）
   final List<UpdateVersionInfo> availableUpdates;
 
+  /// GitHub Release 页面 URL（非 Docker 环境用于跳转下载）
+  final String releaseUrl;
+
   UpgradeCheck({
     required this.hasUpdate,
+    required this.isDocker,
     this.currentVersion,
     this.availableUpdates = const [],
+    this.releaseUrl = 'https://github.com/mimusic-org/mimusic/releases/latest',
   });
 
   factory UpgradeCheck.fromJson(Map<String, dynamic> json) {
+    final isDocker = json['is_docker'] as bool? ?? false;
+
     // 解析当前版本
     String? currentVersion = json['current_version'] as String?;
     if (currentVersion == null || currentVersion.isEmpty) {
@@ -95,6 +103,7 @@ class UpgradeCheck {
 
     return UpgradeCheck(
       hasUpdate: json['has_update'] as bool? ?? false,
+      isDocker: isDocker,
       currentVersion: currentVersion,
       availableUpdates: availableUpdates,
     );
@@ -102,7 +111,7 @@ class UpgradeCheck {
 
   @override
   String toString() =>
-      'UpgradeCheck(hasUpdate: $hasUpdate, current: $currentVersion, updates: ${availableUpdates.length})';
+      'UpgradeCheck(hasUpdate: $hasUpdate, isDocker: $isDocker, current: $currentVersion, updates: ${availableUpdates.length})';
 }
 
 /// 升级进度模型

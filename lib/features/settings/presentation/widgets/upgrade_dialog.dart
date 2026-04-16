@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_exceptions.dart';
 import '../../../../core/theme/responsive.dart';
@@ -350,8 +351,11 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
               '当前版本: ${check.currentVersion ?? '未知'}',
               style: theme.textTheme.bodySmall,
             ),
-            const SizedBox(height: 16),
-            _buildResetButton(theme),
+            // 仅 Docker 环境显示回退按钮
+            if (check.isDocker) ...[
+              const SizedBox(height: 16),
+              _buildResetButton(theme),
+            ],
           ],
         ),
       );
@@ -369,8 +373,8 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
         ),
         const SizedBox(height: 12),
 
-        // 版本选择（多个可用更新时显示）
-        if (check.availableUpdates.length > 1) ...[
+        // 版本选择（多个可用更新时显示，仅 Docker 环境）
+        if (check.isDocker && check.availableUpdates.length > 1) ...[
           Text('选择升级版本:', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           ...List.generate(check.availableUpdates.length, (index) {
@@ -415,7 +419,9 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
                   children: [
                     Icon(Icons.new_releases, color: colorScheme.primary),
                     const SizedBox(width: 8),
-                    Text('${selectedVersion.label} ${selectedVersion.version}'),
+                    Expanded(
+                      child: Text('${selectedVersion.label} ${selectedVersion.version}'),
+                    ),
                   ],
                 ),
               ],
@@ -445,11 +451,13 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
           ],
         ],
 
-        // 回退到底包按钮
-        const SizedBox(height: 16),
-        const Divider(),
-        const SizedBox(height: 8),
-        Center(child: _buildResetButton(theme)),
+        // 仅 Docker 环境显示回退到底包按钮
+        if (check.isDocker) ...[
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+          Center(child: _buildResetButton(theme)),
+        ],
       ],
     );
   }
@@ -523,6 +531,15 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
         ],
       ],
     );
+  }
+
+  /// 打开 GitHub Release 下载页面
+  Future<void> _launchReleaseUrl() async {
+    final releaseUrl = _checkResult?.releaseUrl ?? 'https://github.com/mimusic-org/mimusic/releases/latest';
+    final url = Uri.parse(releaseUrl);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   List<Widget> _buildActions(UpgradeProgress upgradeProgress) {
@@ -608,8 +625,38 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
       ];
     }
 
-    // 检查结果
+    // 检查结果：有更新
     if (_checkResult != null && _checkResult!.hasUpdate) {
+      // 非 Docker 环境：显示"前往下载"按钮
+      if (!_checkResult!.isDocker) {
+        return [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              minimumSize: context.responsiveButtonMinSize,
+            ),
+            child: const Text('稍后'),
+          ),
+          if (_proxyChanged)
+            OutlinedButton(
+              onPressed: _checkUpgrade,
+              style: OutlinedButton.styleFrom(
+                minimumSize: context.responsiveButtonMinSize,
+              ),
+              child: const Text('重新检查'),
+            ),
+          FilledButton.icon(
+            onPressed: () => _launchReleaseUrl(),
+            style: FilledButton.styleFrom(
+              minimumSize: context.responsiveButtonMinSize,
+            ),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: const Text('前往下载'),
+          ),
+        ];
+      }
+
+      // Docker 环境：显示"立即升级"按钮
       return [
         TextButton(
           onPressed: () => Navigator.pop(context),

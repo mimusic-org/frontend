@@ -220,14 +220,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return serverVersion.when(
       data: (version) => ListTile(
         leading: const Icon(Icons.dns),
-        title: const Text('检查服务端更新'),
-        subtitle: Text('当前版本: $version（仅 Docker 可升级）'),
+        title: const Text('检查服务端更新 (仅 Docker 可升级)'),
+        subtitle: Text('当前版本: $version'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => UpgradeDialog.show(context),
       ),
       loading: () => const ListTile(
         leading: Icon(Icons.dns),
-        title: Text('检查服务端更新'),
+        title: Text('检查服务端更新 (仅 Docker 可升级)'),
         subtitle: Text('正在获取版本信息...'),
         trailing: SizedBox(
           width: 20,
@@ -237,8 +237,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       error: (_, _) => ListTile(
         leading: const Icon(Icons.dns),
-        title: const Text('检查服务端更新'),
-        subtitle: const Text('检查后端服务是否有新版本（仅 Docker）'),
+        title: const Text('检查服务端更新 (仅 Docker 可升级)'),
+        subtitle: const Text('获取版本信息失败'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => UpgradeDialog.show(context),
       ),
