@@ -46,3 +46,4 @@ app.*.map.json
 
 .aone_copilot/
 dist/
+pubspec.lock
