@@ -217,4 +217,14 @@ class PluginApi {
       throw ApiException.fromDioException(e);
     }
   }
+
+  /// 重置插件
+  /// POST /api/v1/plugins/{id}/reset
+  Future<void> resetPlugin(int id) async {
+    try {
+      await dio.post('${AppConfig.apiPrefix}/plugins/$id/reset');
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
 }

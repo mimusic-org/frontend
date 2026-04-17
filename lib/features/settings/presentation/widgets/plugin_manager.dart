@@ -405,6 +405,7 @@ class _PluginItem extends ConsumerStatefulWidget {
 class _PluginItemState extends ConsumerState<_PluginItem> {
   bool _isToggling = false;
   bool _isDeleting = false;
+  bool _isResetting = false;
 
   Future<void> _togglePlugin() async {
     setState(() => _isToggling = true);
@@ -428,6 +429,57 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
     } finally {
       if (mounted) {
         setState(() => _isToggling = false);
+      }
+    }
+  }
+
+  Future<void> _resetPlugin() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('确认重置'),
+            content: Text(
+              '确定要重置插件 "${widget.plugin.displayName}" 吗？\n\n这将清空插件的所有数据并重新启动。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('重置'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isResetting = true);
+
+    try {
+      final pluginApi = ref.read(pluginApiProvider);
+      await pluginApi.resetPlugin(widget.plugin.id);
+      ref.invalidate(pluginsProvider);
+      if (mounted) {
+        ResponsiveSnackBar.show(context, message: '插件已重置');
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ResponsiveSnackBar.showError(context, message: '重置失败: ${e.message}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ResponsiveSnackBar.showError(context, message: '重置失败: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isResetting = false);
       }
     }
   }
@@ -546,6 +598,19 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
               value: plugin.isActive,
               onChanged: plugin.isError ? null : (_) => _togglePlugin(),
             ),
+          // 重置按钮
+          IconButton(
+            icon:
+                _isResetting
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.refresh),
+            onPressed: _isResetting ? null : _resetPlugin,
+            tooltip: '重置',
+          ),
           // 删除按钮
           IconButton(
             icon:
