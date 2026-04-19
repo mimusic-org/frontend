@@ -6,6 +6,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../shared/utils/responsive_snackbar.dart';
 import '../../data/scan_api.dart';
 import '../providers/settings_provider.dart';
+import 'exclude_dir_manager.dart';
 
 /// 扫描管理组件
 class ScanManager extends ConsumerStatefulWidget {
@@ -19,6 +20,7 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
   bool _isLoading = false;
   String? _error;
   String _scanMode = 'skip'; // 'skip' 或 'reimport'
+  bool _showExcludeDirs = false; // 是否展开排除目录设置
 
   @override
   void initState() {
@@ -107,6 +109,51 @@ class _ScanManagerState extends ConsumerState<ScanManager> {
           ),
           const SizedBox(height: 12),
         ],
+
+        // 排除目录设置（可展开/折叠）
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.folder_off_outlined,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                title: const Text('排除目录设置'),
+                subtitle: Text(
+                  '配置扫描时需要忽略的目录',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: Icon(
+                  _showExcludeDirs
+                      ? Icons.expand_less
+                      : Icons.expand_more,
+                ),
+                onTap: () {
+                  setState(() => _showExcludeDirs = !_showExcludeDirs);
+                },
+              ),
+              if (_showExcludeDirs)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    0,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
+                  child: ExcludeDirManager(),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
 
         // 根据状态显示不同内容
         if (progress.isIdle) _buildIdleState(),

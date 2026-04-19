@@ -8,6 +8,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/cache_api.dart';
 import '../../data/config_api.dart';
+import '../../data/directory_api.dart';
 import '../../data/plugin_api.dart';
 import '../../data/scan_api.dart';
 import '../../data/frontend_version_api.dart';
@@ -27,6 +28,12 @@ final configApiProvider = Provider<ConfigApi>((ref) {
 final scanApiProvider = Provider<ScanApi>((ref) {
   final dio = ref.watch(dioProvider);
   return ScanApi(dio: dio);
+});
+
+/// DirectoryApi Provider
+final directoryApiProvider = Provider<DirectoryApi>((ref) {
+  final dio = ref.watch(dioProvider);
+  return DirectoryApi(dio: dio);
 });
 
 /// PluginApi Provider
