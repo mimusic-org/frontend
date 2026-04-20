@@ -653,7 +653,7 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                    : const Icon(Icons.refresh),
+                    : const Icon(Icons.restart_alt),
             onPressed: _isResetting ? null : _resetPlugin,
             tooltip: '重置',
           ),
