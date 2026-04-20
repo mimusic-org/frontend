@@ -484,6 +484,15 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
     }
   }
 
+  Future<void> _openHomepage(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      ResponsiveSnackBar.show(context, message: '无法打开链接: $url');
+    }
+  }
+
   Future<void> _deletePlugin() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -575,6 +584,20 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (plugin.author != null) Text('作者: ${plugin.author}'),
+          if (plugin.homepage != null && plugin.homepage!.isNotEmpty)
+            GestureDetector(
+              onTap: () => _openHomepage(plugin.homepage!),
+              child: Text(
+                plugin.homepage!,
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  decoration: TextDecoration.underline,
+                  decorationColor: theme.colorScheme.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           if (plugin.description != null)
             Text(
               plugin.description!,
