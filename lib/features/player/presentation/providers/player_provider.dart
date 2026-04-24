@@ -290,8 +290,16 @@ class PlayerNotifier extends Notifier<PlayerState> {
       debugPrint('[Player] togglePlay: pausing');
       await _audioHandler.pause();
     } else {
-      debugPrint('[Player] togglePlay: resuming');
-      await _audioHandler.play();
+      // 如果播放器处于 idle 状态（无音频源，如后台播放失败后），
+      // 需要重新加载当前歌曲而不是简单调用 play()
+      if (_audioHandler.processingState == ja.ProcessingState.idle) {
+        debugPrint('[Player] togglePlay: player idle, re-loading current song');
+        _consecutiveFailures = 0;
+        await _playCurrent();
+      } else {
+        debugPrint('[Player] togglePlay: resuming');
+        await _audioHandler.play();
+      }
     }
   }
 
@@ -328,6 +336,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 播放上一首
   Future<void> playPrev() async {
+    _consecutiveFailures = 0;
     debugPrint(
       '[Player] playPrev: currentIndex: ${state.currentIndex}, currentTime: ${state.currentTime.inSeconds}s',
     );
@@ -661,9 +670,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     final songsApi = ref.read(songsApiProvider);
     const firstPageLimit = 100;
 
-    debugPrint(
-      '[Player] playAllSongs: start, keyword=$keyword, type=$type',
-    );
+    debugPrint('[Player] playAllSongs: start, keyword=$keyword, type=$type');
     _consecutiveFailures = 0;
     try {
       final firstPageResponse = await songsApi.getSongs(

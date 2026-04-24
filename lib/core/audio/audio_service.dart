@@ -80,10 +80,24 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
       final session = await AudioSession.instance;
       await session.configure(const AudioSessionConfiguration.music());
       debugPrint('[AudioService] AudioSession configured');
+      var wasPlayingBeforeInterruption = false;
       session.interruptionEventStream.listen((event) {
         debugPrint(
           '[AudioService] Audio interruption: type=${event.type}, begin=${event.begin}',
         );
+        if (event.begin) {
+          // 中断开始：记录当前播放状态并暂停
+          wasPlayingBeforeInterruption = _player.playing;
+          if (event.type == AudioInterruptionType.pause ||
+              event.type == AudioInterruptionType.unknown) {
+            _player.pause();
+          }
+        } else {
+          // 中断结束：如果之前正在播放，则恢复
+          if (wasPlayingBeforeInterruption) {
+            _player.play();
+          }
+        }
       });
     } catch (e) {
       debugPrint('[AudioService] AudioSession init failed: $e');
@@ -242,9 +256,13 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
       // 提前更新 mediaItem，确保通知栏在 Service 重建时能读取到正确的元数据。
       _updateNowPlaying(song);
 
-      // 先停止当前播放，确保 Web 平台上 HTML5 Audio 元素正确释放旧音频源
-      // 不调用 super.stop() 以避免影响 audio_service 的前台 Service
-      await _player.stop();
+      // Web 平台需要 stop() 释放 HTML5 Audio 元素；
+      // 原生平台不调用 stop()，setAudioSource() 会自动替换当前源。
+      // 在 iOS 后台场景下，stop() 会使音频会话变为空闲，
+      // 导致系统限制后台网络访问，使下一首歌曲无法加载。
+      if (kIsWeb) {
+        await _player.stop();
+      }
 
       debugPrint('[Player] MiMusicAudioHandler: setting audio source');
       await _player.setAudioSource(source);
