@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_exceptions.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/responsive.dart';
 import '../../../../shared/utils/responsive_snackbar.dart';
 import '../../data/plugin_api.dart';
@@ -33,27 +34,50 @@ class _PluginManagerState extends ConsumerState<PluginManager> {
         // 上传按钮
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: _showUploadDialog,
-                icon: const Icon(Icons.upload_file),
-                label: const Text('上传插件'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _openPluginDownloadPage,
-                icon: const Icon(Icons.download),
-                label: const Text('获取插件'),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () => ref.invalidate(pluginsProvider),
-                tooltip: '刷新',
-              ),
-            ],
-          ),
+          child:
+              context.isMobile
+                  ? Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _showUploadDialog,
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('上传插件'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _openPluginDownloadPage,
+                        icon: const Icon(Icons.download),
+                        label: const Text('获取插件'),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh),
+                        onPressed: () => ref.invalidate(pluginsProvider),
+                        tooltip: '刷新',
+                      ),
+                    ],
+                  )
+                  : Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _showUploadDialog,
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('上传插件'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _openPluginDownloadPage,
+                        icon: const Icon(Icons.download),
+                        label: const Text('获取插件'),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.refresh),
+                        onPressed: () => ref.invalidate(pluginsProvider),
+                        tooltip: '刷新',
+                      ),
+                    ],
+                  ),
         ),
         const Divider(height: 1),
 
@@ -564,6 +588,7 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
     final plugin = widget.plugin;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isMobile = context.isMobile;
 
     // 状态颜色
     Color statusColor;
@@ -597,82 +622,212 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
             ),
         ],
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (plugin.author != null) Text('作者: ${plugin.author}'),
-          if (plugin.homepage != null && plugin.homepage!.isNotEmpty)
-            GestureDetector(
-              onTap: () => _openHomepage(plugin.homepage!),
-              child: Text(
-                plugin.homepage!,
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  decoration: TextDecoration.underline,
-                  decorationColor: theme.colorScheme.primary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+      subtitle: isMobile ? _buildMobileSubtitle() : _buildDesktopSubtitle(),
+      trailing: isMobile ? _buildMobileTrailing() : _buildDesktopTrailing(),
+      isThreeLine: plugin.description != null,
+    );
+  }
+
+  Widget _buildDesktopSubtitle() {
+    final plugin = widget.plugin;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (plugin.author != null) Text('作者: ${plugin.author}'),
+        if (plugin.homepage != null && plugin.homepage!.isNotEmpty)
+          GestureDetector(
+            onTap: () => _openHomepage(plugin.homepage!),
+            child: Text(
+              plugin.homepage!,
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+                decoration: TextDecoration.underline,
+                decorationColor: theme.colorScheme.primary,
               ),
-            ),
-          if (plugin.description != null)
-            Text(
-              plugin.description!,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 启用/禁用开关
-          if (_isToggling)
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Switch(
-              value: plugin.isActive,
-              onChanged: plugin.isError ? null : (_) => _togglePlugin(),
-            ),
-          // 更新按钮
-          IconButton(
-            icon: const Icon(Icons.system_update_alt),
-            onPressed: () => _showUpdateDialog(),
-            tooltip: '检查更新',
           ),
-          // 重置按钮
-          IconButton(
-            icon:
-                _isResetting
-                    ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.restart_alt),
-            onPressed: _isResetting ? null : _resetPlugin,
-            tooltip: '重置',
+        if (plugin.description != null)
+          Text(
+            plugin.description!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          // 删除按钮
-          IconButton(
-            icon:
-                _isDeleting
-                    ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.delete_outline),
-            onPressed: _isDeleting ? null : _deletePlugin,
-            tooltip: '删除',
+      ],
+    );
+  }
+
+  Widget _buildMobileSubtitle() {
+    final plugin = widget.plugin;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (plugin.author != null) Text('作者: ${plugin.author}'),
+        if (plugin.description != null)
+          Text(
+            plugin.description!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
-      isThreeLine: plugin.description != null,
+      ],
+    );
+  }
+
+  Widget _buildDesktopTrailing() {
+    final plugin = widget.plugin;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 启用/禁用开关
+        if (_isToggling)
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          Switch(
+            value: plugin.isActive,
+            onChanged: plugin.isError ? null : (_) => _togglePlugin(),
+          ),
+        // 更新按钮
+        IconButton(
+          icon: const Icon(Icons.system_update_alt),
+          onPressed: () => _showUpdateDialog(),
+          tooltip: '检查更新',
+        ),
+        // 重置按钮
+        IconButton(
+          icon:
+              _isResetting
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.restart_alt),
+          onPressed: _isResetting ? null : _resetPlugin,
+          tooltip: '重置',
+        ),
+        // 删除按钮
+        IconButton(
+          icon:
+              _isDeleting
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.delete_outline),
+          onPressed: _isDeleting ? null : _deletePlugin,
+          tooltip: '删除',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileTrailing() {
+    final plugin = widget.plugin;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 启用/禁用开关
+        if (_isToggling)
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          Switch(
+            value: plugin.isActive,
+            onChanged: plugin.isError ? null : (_) => _togglePlugin(),
+          ),
+        // 更多操作菜单
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          tooltip: '更多操作',
+          onSelected: (value) {
+            switch (value) {
+              case 'homepage':
+                _openHomepage(plugin.homepage!);
+              case 'update':
+                _showUpdateDialog();
+              case 'reset':
+                _resetPlugin();
+              case 'delete':
+                _deletePlugin();
+            }
+          },
+          itemBuilder:
+              (context) => [
+                if (plugin.homepage != null && plugin.homepage!.isNotEmpty) ...[
+                  PopupMenuItem<String>(
+                    value: 'homepage',
+                    child: ListTile(
+                      leading: const Icon(Icons.open_in_new),
+                      title: const Text('打开主页'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                ],
+                PopupMenuItem<String>(
+                  value: 'update',
+                  child: ListTile(
+                    leading: const Icon(Icons.system_update_alt),
+                    title: const Text('检查更新'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'reset',
+                  enabled: !_isResetting,
+                  child: ListTile(
+                    leading:
+                        _isResetting
+                            ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.restart_alt),
+                    title: const Text('重置'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'delete',
+                  enabled: !_isDeleting,
+                  child: ListTile(
+                    leading:
+                        _isDeleting
+                            ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : Icon(
+                              Icons.delete_outline,
+                              color: colorScheme.error,
+                            ),
+                    title: Text(
+                      '删除',
+                      style: TextStyle(color: colorScheme.error),
+                    ),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+        ),
+      ],
     );
   }
 }
@@ -838,9 +993,7 @@ class _PluginUpdateDialogState extends State<_PluginUpdateDialog> {
                       Expanded(
                         child: Text(
                           _error!,
-                          style: TextStyle(
-                            color: colorScheme.onErrorContainer,
-                          ),
+                          style: TextStyle(color: colorScheme.onErrorContainer),
                         ),
                       ),
                     ],
@@ -870,10 +1023,7 @@ class _PluginUpdateDialogState extends State<_PluginUpdateDialog> {
                       SizedBox(height: 16),
                       Text('正在下载并更新插件...'),
                       SizedBox(height: 8),
-                      Text(
-                        '请勿关闭此对话框',
-                        style: TextStyle(color: Colors.grey),
-                      ),
+                      Text('请勿关闭此对话框', style: TextStyle(color: Colors.grey)),
                     ],
                   ),
                 )
