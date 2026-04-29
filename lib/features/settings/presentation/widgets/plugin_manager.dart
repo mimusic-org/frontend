@@ -600,153 +600,171 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
       statusColor = colorScheme.outline;
     }
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: statusColor.withValues(alpha: 0.2),
-        child: Icon(Icons.extension, color: statusColor, size: 20),
-      ),
-      title: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(plugin.displayName)),
-          if (plugin.version != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
+          // 第 1 行 —— 标题行：头像 + 插件名 + 操作区
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: statusColor.withValues(alpha: 0.2),
+                child: Icon(Icons.extension, color: statusColor, size: 20),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  plugin.displayName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              ..._buildTrailingActions(isMobile),
+            ],
+          ),
+          // 第 2 行 —— 元信息行：状态胶囊 + 版本号 + 作者（Wrap 自适应换行）
+          Padding(
+            padding: const EdgeInsets.only(left: 48, top: 6),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _buildStatusChip(plugin, colorScheme),
+                if (plugin.version != null)
+                  _buildVersionBadge(plugin.version!, theme),
+                if (plugin.author != null)
+                  Text(
+                    '作者: ${plugin.author}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // 第 3 行 —— 描述（如果存在）
+          if (plugin.description != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, top: 6),
               child: Text(
-                'v${plugin.version}',
-                style: theme.textTheme.labelSmall,
+                plugin.description!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          // 第 4 行 —— 主页链接（仅桌面端；移动端已在菜单中提供）
+          if (!isMobile &&
+              plugin.homepage != null &&
+              plugin.homepage!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, top: 4),
+              child: GestureDetector(
+                onTap: () => _openHomepage(plugin.homepage!),
+                child: Text(
+                  plugin.homepage!,
+                  style: TextStyle(
+                    color: colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: colorScheme.primary,
+                    fontSize: theme.textTheme.bodySmall?.fontSize,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
         ],
       ),
-      subtitle: isMobile ? _buildMobileSubtitle() : _buildDesktopSubtitle(),
-      trailing: isMobile ? _buildMobileTrailing() : _buildDesktopTrailing(),
-      isThreeLine: plugin.description != null,
     );
   }
 
-  Widget _buildDesktopSubtitle() {
-    final plugin = widget.plugin;
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (plugin.author != null) Text('作者: ${plugin.author}'),
-        if (plugin.homepage != null && plugin.homepage!.isNotEmpty)
-          GestureDetector(
-            onTap: () => _openHomepage(plugin.homepage!),
-            child: Text(
-              plugin.homepage!,
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-                decoration: TextDecoration.underline,
-                decorationColor: theme.colorScheme.primary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+  /// 状态胶囊：小圆点 + 文字，颜色与 statusColor 保持一致
+  Widget _buildStatusChip(Plugin plugin, ColorScheme colorScheme) {
+    final String label;
+    final Color color;
+    if (plugin.isError) {
+      label = '错误';
+      color = colorScheme.error;
+    } else if (plugin.isActive) {
+      label = '已启用';
+      color = Colors.green;
+    } else {
+      label = '已禁用';
+      color = colorScheme.outline;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        if (plugin.description != null)
-          Text(
-            plugin.description!,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildMobileSubtitle() {
-    final plugin = widget.plugin;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (plugin.author != null) Text('作者: ${plugin.author}'),
-        if (plugin.description != null)
-          Text(
-            plugin.description!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-      ],
+  /// 版本号徽章：保留原灰色圆角样式
+  Widget _buildVersionBadge(String version, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text('v$version', style: theme.textTheme.labelSmall),
     );
   }
 
-  Widget _buildDesktopTrailing() {
-    final plugin = widget.plugin;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 启用/禁用开关
-        if (_isToggling)
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        else
-          Switch(
-            value: plugin.isActive,
-            onChanged: plugin.isError ? null : (_) => _togglePlugin(),
-          ),
-        // 更新按钮
-        IconButton(
-          icon: const Icon(Icons.system_update_alt),
-          onPressed: () => _showUpdateDialog(),
-          tooltip: '检查更新',
-        ),
-        // 重置按钮
-        IconButton(
-          icon:
-              _isResetting
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Icon(Icons.restart_alt),
-          onPressed: _isResetting ? null : _resetPlugin,
-          tooltip: '重置',
-        ),
-        // 删除按钮
-        IconButton(
-          icon:
-              _isDeleting
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Icon(Icons.delete_outline),
-          onPressed: _isDeleting ? null : _deletePlugin,
-          tooltip: '删除',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileTrailing() {
+  /// 标题行右侧的操作区：
+  ///  - 移动端：[Switch, PopupMenuButton(主页/更新/重置/删除)]
+  ///  - 桌面端：[Switch, 更新, 重置, 删除]
+  List<Widget> _buildTrailingActions(bool isMobile) {
     final plugin = widget.plugin;
     final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 启用/禁用开关
-        if (_isToggling)
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        else
-          Switch(
-            value: plugin.isActive,
-            onChanged: plugin.isError ? null : (_) => _togglePlugin(),
-          ),
-        // 更多操作菜单
+
+    final Widget switchOrLoader =
+        _isToggling
+            ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+            : Switch(
+              value: plugin.isActive,
+              onChanged: plugin.isError ? null : (_) => _togglePlugin(),
+            );
+
+    if (isMobile) {
+      return [
+        switchOrLoader,
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           tooltip: '更多操作',
@@ -827,8 +845,42 @@ class _PluginItemState extends ConsumerState<_PluginItem> {
                 ),
               ],
         ),
-      ],
-    );
+      ];
+    }
+
+    // 桌面端
+    return [
+      switchOrLoader,
+      IconButton(
+        icon: const Icon(Icons.system_update_alt),
+        onPressed: _showUpdateDialog,
+        tooltip: '检查更新',
+      ),
+      IconButton(
+        icon:
+            _isResetting
+                ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                : const Icon(Icons.restart_alt),
+        onPressed: _isResetting ? null : _resetPlugin,
+        tooltip: '重置',
+      ),
+      IconButton(
+        icon:
+            _isDeleting
+                ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                : const Icon(Icons.delete_outline),
+        onPressed: _isDeleting ? null : _deletePlugin,
+        tooltip: '删除',
+      ),
+    ];
   }
 }
 
