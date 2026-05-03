@@ -168,6 +168,15 @@ class PlaylistApi {
     );
   }
 
+  /// 重新排序歌单
+  /// PUT /api/v1/playlists/reorder
+  Future<void> reorderPlaylists(List<int> playlistIds) async {
+    await dio.put(
+      '${AppConfig.apiPrefix}/playlists/reorder',
+      data: {'playlist_ids': playlistIds},
+    );
+  }
+
   /// 从歌单移除歌曲
   /// DELETE /api/v1/playlists/{id}/songs/{songId}
   Future<void> removeSongFromPlaylist(int playlistId, int songId) async {

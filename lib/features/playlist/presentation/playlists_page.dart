@@ -32,6 +32,10 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
   bool _isSelectionMode = false;
   final Set<int> _selectedPlaylistIds = {};
 
+  /// 排序模式
+  bool _isSortMode = false;
+  List<Playlist> _sortablePlaylists = [];
+
   /// 触底加载预留距离（提前 300px 触发下一页加载）
   static const double _loadMoreThreshold = 300.0;
 
@@ -92,85 +96,143 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
     });
   }
 
+  /// 进入排序模式（确保所有歌单已加载）
+  Future<void> _enterSortMode(List<Playlist> playlists) async {
+    // 排序需要全部歌单在内存中，忽略类型筛选加载全部
+    await ref.read(playlistListProvider(null).notifier).loadAll();
+    if (!mounted) return;
+    final fullPlaylists =
+        ref.read(playlistListProvider(null)).value?.items ?? playlists;
+    setState(() {
+      _isSortMode = true;
+      _isSelectionMode = false;
+      _selectedPlaylistIds.clear();
+      _sortablePlaylists = List.from(fullPlaylists);
+    });
+  }
+
+  /// 退出排序模式并保存
+  Future<void> _exitSortMode() async {
+    final playlistIds = _sortablePlaylists.map((p) => p.id).toList();
+    setState(() => _isSortMode = false);
+
+    final notifier = ref.read(playlistNotifierProvider.notifier);
+    final success = await notifier.reorderPlaylists(playlistIds);
+
+    if (mounted) {
+      if (success) {
+        ResponsiveSnackBar.showSuccess(context, message: '排序已保存');
+      } else {
+        ResponsiveSnackBar.showError(context, message: '排序保存失败');
+      }
+    }
+  }
+
+  /// 取消排序模式（不保存）
+  void _cancelSortMode() {
+    setState(() {
+      _isSortMode = false;
+      _sortablePlaylists = [];
+    });
+  }
+
+  /// 拖拽排序回调
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final item = _sortablePlaylists.removeAt(oldIndex);
+      _sortablePlaylists.insert(newIndex, item);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final playlistsAsync = ref.watch(playlistListProvider(_selectedType));
 
     return Scaffold(
       appBar:
-          _isSelectionMode
+          _isSortMode
+              ? _buildSortAppBar()
+              : _isSelectionMode
               ? _buildSelectionAppBar(playlistsAsync)
               : _buildNormalAppBar(),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(playlistListProvider(_selectedType));
-        },
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // 类型筛选
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SegmentedButton<String?>(
-                  segments: const [
-                    ButtonSegment(
-                      value: null,
-                      label: Text('全部'),
-                      icon: Icon(Icons.list),
+      body:
+          _isSortMode
+              ? _buildSortModeBody()
+              : RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(playlistListProvider(_selectedType));
+                },
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    // 类型筛选
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SegmentedButton<String?>(
+                          segments: const [
+                            ButtonSegment(
+                              value: null,
+                              label: Text('全部'),
+                              icon: Icon(Icons.list),
+                            ),
+                            ButtonSegment(
+                              value: AppConstants.playlistTypeNormal,
+                              label: Text('歌单'),
+                              icon: Icon(Icons.queue_music),
+                            ),
+                            ButtonSegment(
+                              value: AppConstants.playlistTypeRadio,
+                              label: Text('电台'),
+                              icon: Icon(Icons.radio),
+                            ),
+                          ],
+                          selected: {_selectedType},
+                          onSelectionChanged: (selected) {
+                            setState(() {
+                              _selectedType = selected.first;
+                            });
+                          },
+                        ),
+                      ),
                     ),
-                    ButtonSegment(
-                      value: AppConstants.playlistTypeNormal,
-                      label: Text('歌单'),
-                      icon: Icon(Icons.queue_music),
+
+                    // 歌单列表
+                    playlistsAsync.when(
+                      data:
+                          (state) =>
+                              _buildPlaylistContent(context, state.items),
+                      loading:
+                          () => const SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.all(64),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ),
+                      error:
+                          (error, stack) => SliverToBoxAdapter(
+                            child: _buildErrorContent(error.toString()),
+                          ),
                     ),
-                    ButtonSegment(
-                      value: AppConstants.playlistTypeRadio,
-                      label: Text('电台'),
-                      icon: Icon(Icons.radio),
+
+                    // 加载更多指示器（仅在 hasMore 或 isLoadingMore 时显示）
+                    if (playlistsAsync.value != null)
+                      SliverToBoxAdapter(
+                        child: _buildLoadMoreIndicator(playlistsAsync.value!),
+                      ),
+
+                    // 底部安全区域
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: MediaQuery.of(context).padding.bottom + 80,
+                      ),
                     ),
                   ],
-                  selected: {_selectedType},
-                  onSelectionChanged: (selected) {
-                    setState(() {
-                      _selectedType = selected.first;
-                    });
-                  },
                 ),
               ),
-            ),
-
-            // 歌单列表
-            playlistsAsync.when(
-              data: (state) => _buildPlaylistContent(context, state.items),
-              loading:
-                  () => const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.all(64),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  ),
-              error:
-                  (error, stack) => SliverToBoxAdapter(
-                    child: _buildErrorContent(error.toString()),
-                  ),
-            ),
-
-            // 加载更多指示器（仅在 hasMore 或 isLoadingMore 时显示）
-            if (playlistsAsync.value != null)
-              SliverToBoxAdapter(
-                child: _buildLoadMoreIndicator(playlistsAsync.value!),
-              ),
-
-            // 底部安全区域
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: MediaQuery.of(context).padding.bottom + 80,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -215,6 +277,9 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
   }
 
   AppBar _buildNormalAppBar() {
+    final playlistsAsync = ref.watch(playlistListProvider(_selectedType));
+    final playlists = playlistsAsync.value?.items ?? [];
+
     return AppBar(
       title: const Text('歌单'),
       actions: [
@@ -232,6 +297,12 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
           onPressed: () {
             ref.read(playlistViewModeProvider.notifier).toggleViewMode();
           },
+        ),
+        // 排序按钮
+        IconButton(
+          icon: const Icon(Icons.sort),
+          tooltip: '排序',
+          onPressed: () => _enterSortMode(playlists),
         ),
         // 多选模式按钮
         IconButton(
@@ -275,6 +346,144 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
     );
   }
 
+  AppBar _buildSortAppBar() {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: '取消',
+        onPressed: _cancelSortMode,
+      ),
+      title: const Text('排序歌单'),
+      actions: [TextButton(onPressed: _exitSortMode, child: const Text('完成'))],
+    );
+  }
+
+  /// 排序模式下的主体内容
+  Widget _buildSortModeBody() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    if (_sortablePlaylists.isEmpty) {
+      return const Center(child: Text('暂无歌单'));
+    }
+
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _sortablePlaylists.length,
+      onReorder: _onReorder,
+      itemBuilder: (context, index) {
+        final playlist = _sortablePlaylists[index];
+        final coverUrl = CoverUrl.buildCoverUrl(
+          coverUrl: playlist.coverUrl,
+          coverPath: playlist.coverPath,
+        );
+
+        return Card(
+          key: ValueKey(playlist.id),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                // 序号
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    '${index + 1}',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 封面
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child:
+                        coverUrl != null
+                            ? CachedNetworkImage(
+                              imageUrl: coverUrl,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  (context, url) => Container(
+                                    color: colorScheme.surfaceContainerHighest,
+                                    child: Icon(
+                                      Icons.queue_music,
+                                      size: 24,
+                                      color: colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                              errorWidget:
+                                  (context, url, error) => Container(
+                                    color: colorScheme.surfaceContainerHighest,
+                                    child: Icon(
+                                      Icons.queue_music,
+                                      size: 24,
+                                      color: colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                            )
+                            : Container(
+                              color: colorScheme.surfaceContainerHighest,
+                              child: Center(
+                                child: Icon(
+                                  playlist.type == 'radio'
+                                      ? Icons.radio
+                                      : Icons.queue_music,
+                                  size: 24,
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                            ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // 歌单信息
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        playlist.name,
+                        style: textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${playlist.songCount} 首歌曲',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 拖拽手柄
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   AppBar _buildSelectionAppBar(
     AsyncValue<PaginatedPlaylistsState> playlistsAsync,
   ) {
@@ -311,8 +520,7 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
             await ref
                 .read(playlistListProvider(_selectedType).notifier)
                 .loadAll();
-            final state =
-                ref.read(playlistListProvider(_selectedType)).value;
+            final state = ref.read(playlistListProvider(_selectedType)).value;
             if (state != null) {
               _selectAll(state.items);
             }

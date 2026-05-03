@@ -151,6 +151,15 @@ class PlaylistRepository {
     }
   }
 
+  /// 重新排序歌单
+  Future<void> reorderPlaylists(List<int> playlistIds) async {
+    try {
+      await playlistApi.reorderPlaylists(playlistIds);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 从歌单移除歌曲
   Future<void> removeSongFromPlaylist(int playlistId, int songId) async {
     try {

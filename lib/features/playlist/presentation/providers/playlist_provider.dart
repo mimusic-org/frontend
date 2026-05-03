@@ -459,6 +459,21 @@ class PlaylistNotifier extends Notifier<AsyncValue<void>> {
     }
   }
 
+  /// 重新排序歌单
+  Future<bool> reorderPlaylists(List<int> playlistIds) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.reorderPlaylists(playlistIds);
+      state = const AsyncValue.data(null);
+      // 刷新歌单列表
+      ref.invalidate(playlistListProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
   /// 批量移除歌曲
   Future<bool> batchRemoveSongs(int playlistId, Set<int> songIds) async {
     state = const AsyncValue.loading();
