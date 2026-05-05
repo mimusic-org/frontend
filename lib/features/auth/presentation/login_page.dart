@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,6 +32,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   bool _obscurePassword = true;
 
+  // TV 焦点步骤指示器
+  int _currentStep = 1;
+  int get _totalSteps => !AppConfig.isEmbedded ? 3 : 2;
+
+  bool get _isApiUrlVisible => !AppConfig.isEmbedded;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +46,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _loadSavedApiUrl();
     }
     _loadSavedCredentials();
+
+    // 监听焦点变化更新步骤指示器
+    _usernameFocusNode.addListener(_updateStep);
+    _passwordFocusNode.addListener(_updateStep);
+    _apiUrlFocusNode.addListener(_updateStep);
+  }
+
+  void _updateStep() {
+    int newStep = _currentStep;
+    if (_usernameFocusNode.hasFocus) {
+      newStep = 1;
+    } else if (_passwordFocusNode.hasFocus) {
+      newStep = 2;
+    } else if (_apiUrlFocusNode.hasFocus) {
+      newStep = 3;
+    }
+    if (newStep != _currentStep) {
+      setState(() {
+        _currentStep = newStep;
+      });
+    }
   }
 
   Future<void> _loadSavedApiUrl() async {
@@ -63,6 +91,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   void dispose() {
+    _usernameFocusNode.removeListener(_updateStep);
+    _passwordFocusNode.removeListener(_updateStep);
+    _apiUrlFocusNode.removeListener(_updateStep);
     _usernameController.dispose();
     _passwordController.dispose();
     _apiUrlController.dispose();
@@ -231,18 +262,44 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              '登录',
-                              style: theme.textTheme.headlineLarge?.copyWith(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: TvTheme.spacingSmall),
-                            Text(
-                              '使用您的账号登录 MiMusic',
-                              style: TvTheme.captionStyle(context),
+                            // 步骤指示器和标题行
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '登录',
+                                      style: theme.textTheme.headlineLarge
+                                          ?.copyWith(
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: TvTheme.spacingSmall,
+                                    ),
+                                    Text(
+                                      '使用您的账号登录 MiMusic',
+                                      style: TvTheme.captionStyle(context),
+                                    ),
+                                  ],
+                                ),
+                                // 焦点步骤指示器
+                                Text(
+                                  '$_currentStep / $_totalSteps',
+                                  style: TextStyle(
+                                    fontSize: TvTheme.fontSizeCaption,
+                                    color: colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: TvTheme.spacingXLarge),
 
@@ -252,11 +309,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               controller: _usernameController,
                               focusNode: _usernameFocusNode,
                               nextFocusNode: _passwordFocusNode,
+                              previousFocusNode: null,
                               colorScheme: colorScheme,
                               labelText: '用户名',
                               hintText: '请输入用户名',
                               prefixIcon: Icons.person_outline,
                               autofocus: true,
+                              isLastField: false,
                               autofillHints: const [AutofillHints.username],
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -272,17 +331,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             const SizedBox(height: TvTheme.spacingLarge),
 
                             // API 地址 — 嵌入模式下隐藏
-                            if (!AppConfig.isEmbedded) ...[
+                            if (_isApiUrlVisible) ...[
                               _buildTvInputField(
                                 context: context,
                                 controller: _apiUrlController,
                                 focusNode: _apiUrlFocusNode,
                                 nextFocusNode: _loginButtonFocusNode,
+                                previousFocusNode: _passwordFocusNode,
                                 colorScheme: colorScheme,
                                 labelText: 'API 地址',
                                 hintText: AppConfig.baseUrl,
                                 prefixIcon: Icons.cloud_outlined,
                                 keyboardType: TextInputType.url,
+                                isLastField: true,
+                                onSubmit: _handleLogin,
                                 validator: (value) {
                                   if (value != null && value.isNotEmpty) {
                                     if (!value.startsWith('http://') &&
@@ -382,14 +444,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     required String labelText,
     required String hintText,
     required IconData prefixIcon,
+    FocusNode? previousFocusNode,
     bool autofocus = false,
+    bool isLastField = false,
     List<String>? autofillHints,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    VoidCallback? onSubmit,
   }) {
     return _TvFocusableTextField(
       controller: controller,
       focusNode: focusNode,
+      nextFocusNode: nextFocusNode,
+      previousFocusNode: previousFocusNode,
+      isLastField: isLastField,
       colorScheme: colorScheme,
       labelText: labelText,
       hintText: hintText,
@@ -397,9 +465,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       autofocus: autofocus,
       autofillHints: autofillHints,
       keyboardType: keyboardType,
-      textInputAction: TextInputAction.next,
+      textInputAction:
+          isLastField ? TextInputAction.done : TextInputAction.next,
       onFieldSubmitted: (_) {
-        nextFocusNode.requestFocus();
+        if (isLastField && onSubmit != null) {
+          onSubmit();
+        } else {
+          nextFocusNode.requestFocus();
+        }
       },
       validator: validator,
     );
@@ -407,20 +480,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   /// TV 密码输入框（带显示/隐藏切换）
   Widget _buildTvPasswordField(BuildContext context, ColorScheme colorScheme) {
+    const bool isLast = AppConfig.isEmbedded;
     return _TvFocusableTextField(
       controller: _passwordController,
       focusNode: _passwordFocusNode,
+      nextFocusNode: isLast ? _loginButtonFocusNode : _apiUrlFocusNode,
+      previousFocusNode: _usernameFocusNode,
+      isLastField: isLast,
       colorScheme: colorScheme,
       labelText: '密码',
       hintText: '请输入密码',
       prefixIcon: Icons.lock_outline,
       obscureText: _obscurePassword,
       autofillHints: const [AutofillHints.password],
-      textInputAction:
-          AppConfig.isEmbedded ? TextInputAction.done : TextInputAction.next,
+      textInputAction: isLast ? TextInputAction.done : TextInputAction.next,
       onFieldSubmitted: (_) {
-        if (AppConfig.isEmbedded) {
-          _loginButtonFocusNode.requestFocus();
+        if (isLast) {
+          _handleLogin();
         } else {
           _apiUrlFocusNode.requestFocus();
         }
@@ -459,50 +535,61 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Builder(
         builder: (context) {
           final hasFocus = Focus.of(context).hasFocus;
-          return AnimatedContainer(
+          return AnimatedScale(
+            scale: hasFocus ? 1.08 : 1.0,
             duration: TvTheme.focusAnimationDuration,
-            curve: Curves.easeOutCubic,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border:
-                  hasFocus
-                      ? Border.all(
-                        color: colorScheme.primary,
-                        width: TvTheme.focusBorderWidth,
-                      )
-                      : null,
-              boxShadow:
-                  hasFocus
-                      ? [
-                        BoxShadow(
-                          color: colorScheme.primary.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                      : null,
-            ),
-            child: FilledButton(
-              focusNode: null,
-              onPressed: authState.isLoading ? null : _handleLogin,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(TvTheme.minButtonSize),
-                textStyle: TvTheme.buttonStyle(context),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+            curve: TvTheme.focusAnimationCurve,
+            child: AnimatedContainer(
+              duration: TvTheme.focusAnimationDuration,
+              curve: TvTheme.focusAnimationCurve,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    hasFocus
+                        ? Border.all(
+                          color: colorScheme.primary,
+                          width: TvTheme.focusBorderWidth,
+                        )
+                        : null,
+                boxShadow:
+                    hasFocus
+                        ? [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(
+                              alpha: TvTheme.focusGlowOpacity,
+                            ),
+                            blurRadius: TvTheme.focusShadowBlurRadius,
+                            spreadRadius: TvTheme.focusGlowSpreadRadius,
+                          ),
+                        ]
+                        : null,
               ),
-              child:
-                  authState.isLoading
-                      ? SizedBox(
-                        height: 28,
-                        width: 28,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: colorScheme.onPrimary,
+              child: FilledButton(
+                focusNode: null,
+                onPressed: authState.isLoading ? null : _handleLogin,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(TvTheme.minButtonSize),
+                  textStyle: TvTheme.buttonStyle(context).copyWith(
+                    fontWeight: hasFocus ? FontWeight.bold : FontWeight.w500,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child:
+                    authState.isLoading
+                        ? SizedBox(
+                          height: 28,
+                          width: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: colorScheme.onPrimary,
+                          ),
+                        )
+                        : Text(
+                          hasFocus ? '按确认键登录' : '登录',
                         ),
-                      )
-                      : const Text('登录'),
+              ),
             ),
           );
         },
@@ -655,6 +742,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 class _TvFocusableTextField extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
+  final FocusNode? nextFocusNode;
+  final FocusNode? previousFocusNode;
+  final bool isLastField;
   final ColorScheme colorScheme;
   final String labelText;
   final String hintText;
@@ -675,6 +765,9 @@ class _TvFocusableTextField extends StatefulWidget {
     required this.labelText,
     required this.hintText,
     required this.prefixIcon,
+    this.nextFocusNode,
+    this.previousFocusNode,
+    this.isLastField = false,
     this.autofocus = false,
     this.obscureText = false,
     this.autofillHints,
@@ -710,97 +803,136 @@ class _TvFocusableTextFieldState extends State<_TvFocusableTextField> {
     });
   }
 
+  /// 处理 D-Pad 按键事件
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.arrowDown) {
+      if (widget.nextFocusNode != null) {
+        widget.nextFocusNode!.requestFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      if (widget.previousFocusNode != null) {
+        widget.previousFocusNode!.requestFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.select) {
+      if (!widget.isLastField && widget.nextFocusNode != null) {
+        widget.nextFocusNode!.requestFocus();
+        return KeyEventResult.handled;
+      } else if (widget.isLastField && widget.onFieldSubmitted != null) {
+        widget.onFieldSubmitted!(widget.controller.text);
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
 
-    return AnimatedContainer(
-      duration: TvTheme.focusAnimationDuration,
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border:
-            _hasFocus
-                ? Border.all(
-                  color: colorScheme.primary,
-                  width: TvTheme.focusBorderWidth,
-                )
-                : Border.all(
-                  color: colorScheme.outline.withValues(alpha: 0.4),
-                  width: 1.5,
-                ),
-        boxShadow:
-            _hasFocus
-                ? [
-                  BoxShadow(
-                    color: colorScheme.primary.withValues(alpha: 0.25),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                  ),
-                ]
-                : null,
-      ),
-      child: TextFormField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        autofocus: widget.autofocus,
-        obscureText: widget.obscureText,
-        autofillHints: widget.autofillHints,
-        keyboardType: widget.keyboardType,
-        textInputAction: widget.textInputAction,
-        onFieldSubmitted: widget.onFieldSubmitted,
-        validator: widget.validator,
-        style: TextStyle(
-          fontSize: TvTheme.fontSizeBody,
-          color: colorScheme.onSurface,
-        ),
-        decoration: InputDecoration(
-          labelText: widget.labelText,
-          hintText: widget.hintText,
-          labelStyle: TextStyle(
-            fontSize: TvTheme.fontSizeCaption,
-            color:
-                _hasFocus ? colorScheme.primary : colorScheme.onSurfaceVariant,
-          ),
-          hintStyle: TextStyle(
-            fontSize: TvTheme.fontSizeBody,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-          ),
-          prefixIcon: Icon(
-            widget.prefixIcon,
-            size: 28,
-            color:
-                _hasFocus ? colorScheme.primary : colorScheme.onSurfaceVariant,
-          ),
-          suffixIcon: widget.suffixIconBuilder?.call(_hasFocus),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 20,
-          ),
-          filled: true,
-          fillColor:
+    return Focus(
+      focusNode: widget.focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: AnimatedContainer(
+        duration: TvTheme.focusAnimationDuration,
+        curve: TvTheme.focusAnimationCurve,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border:
               _hasFocus
-                  ? colorScheme.primaryContainer.withValues(alpha: 0.15)
-                  : colorScheme.surfaceContainerLow,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: BorderSide.none,
+                  ? Border.all(
+                    color: colorScheme.primary,
+                    width: TvTheme.focusBorderWidth,
+                  )
+                  : Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+          boxShadow:
+              _hasFocus
+                  ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.25),
+                      blurRadius: 16,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                  : null,
+        ),
+          child: TextFormField(
+          controller: widget.controller,
+            autofocus: widget.autofocus,
+          obscureText: widget.obscureText,
+          autofillHints: widget.autofillHints,
+          keyboardType: widget.keyboardType,
+          textInputAction: widget.textInputAction,
+          onFieldSubmitted: widget.onFieldSubmitted,
+          validator: widget.validator,
+          style: TextStyle(
+            fontSize: TvTheme.fontSizeBody,
+            color: colorScheme.onSurface,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: BorderSide.none,
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: BorderSide(color: colorScheme.error, width: 1.5),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(13),
-            borderSide: BorderSide.none,
+          decoration: InputDecoration(
+            labelText: widget.labelText,
+            hintText: widget.hintText,
+            labelStyle: TextStyle(
+              fontSize: TvTheme.fontSizeCaption,
+              color:
+                  _hasFocus
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+            ),
+            hintStyle: TextStyle(
+              fontSize: TvTheme.fontSizeBody,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            prefixIcon: Icon(
+              widget.prefixIcon,
+              size: 28,
+              color:
+                  _hasFocus
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+            ),
+            suffixIcon: widget.suffixIconBuilder?.call(_hasFocus),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 20,
+            ),
+            filled: true,
+            fillColor:
+                _hasFocus
+                    ? colorScheme.primaryContainer.withValues(alpha: 0.15)
+                    : colorScheme.surfaceContainerLow,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide(color: colorScheme.error, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ),

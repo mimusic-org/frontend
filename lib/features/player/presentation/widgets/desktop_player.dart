@@ -6,7 +6,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../shared/widgets/favorite_button.dart';
 import '../../domain/player_state.dart';
 import '../providers/player_provider.dart';
-import 'lyrics_view.dart';
+import 'desktop_full_player.dart';
 import 'play_controls.dart';
 import 'progress_bar.dart';
 import 'popup_controls.dart';
@@ -104,56 +104,67 @@ class DesktopPlayer extends ConsumerWidget {
 
     return Row(
       children: [
-        // 封面
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: theme.colorScheme.surfaceContainerHighest,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child:
-              coverUrl != null
-                  ? Image.network(
-                    coverUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder:
-                        (_, _, _) => Icon(
-                          Icons.music_note_rounded,
+        // 可点击区域（封面+标题）
+        Expanded(
+          child: GestureDetector(
+            onTap: () => DesktopFullPlayer.show(context),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                // 封面
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: theme.colorScheme.surfaceContainerHighest,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child:
+                      coverUrl != null
+                          ? Image.network(
+                            coverUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder:
+                                (_, _, _) => Icon(
+                                  Icons.music_note_rounded,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                          )
+                          : Icon(
+                            Icons.music_note_rounded,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                ),
+                const SizedBox(width: 12),
+                // 标题和艺术家
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        song.artist ?? '未知艺术家',
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
-                  )
-                  : Icon(
-                    Icons.music_note_rounded,
-                    color: theme.colorScheme.onSurfaceVariant,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-        ),
-        const SizedBox(width: 12),
-        // 标题和艺术家
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                song.title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                song.artist ?? '未知艺术家',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -293,7 +304,7 @@ class DesktopPlayer extends ConsumerWidget {
         state.currentSong!.lyric!.isNotEmpty;
 
     return IconButton(
-      onPressed: hasSong ? () => _showLyricsDialog(context, state) : null,
+      onPressed: hasSong ? () => DesktopFullPlayer.show(context) : null,
       icon: Icon(
         Icons.lyrics_rounded,
         size: 20,
@@ -304,95 +315,6 @@ class DesktopPlayer extends ConsumerWidget {
       ),
       tooltip: '歌词',
       visualDensity: VisualDensity.compact,
-    );
-  }
-
-  /// 显示歌词对话框
-  void _showLyricsDialog(BuildContext context, PlayerState state) {
-    final song = state.currentSong;
-    if (song == null) return;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => _LyricsDialog(song: song),
-    );
-  }
-}
-
-/// 歌词对话框组件
-class _LyricsDialog extends ConsumerWidget {
-  final dynamic song;
-
-  const _LyricsDialog({required this.song});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(playerStateProvider);
-    final theme = Theme.of(context);
-    final currentSong = state.currentSong;
-
-    // 如果歌曲变化了，关闭对话框
-    if (currentSong == null || currentSong.id != song.id) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          Navigator.of(context).pop();
-        }
-      });
-    }
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 400,
-        height: 500,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 标题栏
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    currentSong?.title ?? song.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // 歌词内容
-            Expanded(
-              child: Builder(
-                builder: (_) {
-                  final activeSong = currentSong ?? song;
-                  return LyricsView(
-                    lyricText:
-                        activeSong.lyricSource == 'url'
-                            ? null
-                            : activeSong.lyric,
-                    lyricSource: activeSong.lyricSource,
-                    lyricUrl:
-                        activeSong.lyricSource == 'url'
-                            ? activeSong.lyric
-                            : null,
-                    currentPosition: state.currentTime,
-                    onSeek: ref.read(playerStateProvider.notifier).seek,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

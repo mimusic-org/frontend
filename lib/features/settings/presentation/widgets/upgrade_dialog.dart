@@ -282,32 +282,34 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
         children: [
           Text('GitHub 代理', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          // 预设代理选项
-          ...List.generate(_presetProxies.length, (index) {
-            final proxy = _presetProxies[index];
-            return RadioListTile<int>(
-              title: Text(proxy.label, style: theme.textTheme.bodyMedium),
-              value: index,
-              groupValue: _selectedProxyIndex,
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onChanged: (value) {
-                setState(() => _selectedProxyIndex = value!);
-              },
-            );
-          }),
-          // 自定义代理选项
-          RadioListTile<int>(
-            title: Text('自定义代理', style: theme.textTheme.bodyMedium),
-            value: -1,
+          // 预设代理选项 + 自定义代理选项
+          RadioGroup<int>(
             groupValue: _selectedProxyIndex,
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
             onChanged: (value) {
-              setState(() => _selectedProxyIndex = value!);
+              if (value != null) setState(() => _selectedProxyIndex = value);
             },
+            child: Column(
+              children: [
+                ...List.generate(_presetProxies.length, (index) {
+                  final proxy = _presetProxies[index];
+                  return RadioListTile<int>(
+                    title: Text(proxy.label, style: theme.textTheme.bodyMedium),
+                    value: index,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  );
+                }),
+                // 自定义代理选项
+                RadioListTile<int>(
+                  title: Text('自定义代理', style: theme.textTheme.bodyMedium),
+                  value: -1,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
           ),
           // 自定义代理输入框
           if (_selectedProxyIndex == -1)
@@ -377,30 +379,36 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
         if (check.isDocker && check.availableUpdates.length > 1) ...[
           Text('选择升级版本:', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          ...List.generate(check.availableUpdates.length, (index) {
-            final update = check.availableUpdates[index];
-            return RadioListTile<int>(
-              title: Text(
-                '${update.label} (${update.version})',
-                style: theme.textTheme.bodyMedium,
-              ),
-              subtitle:
-                  update.buildTime != null
-                      ? Text(
-                        '构建时间: ${update.buildTime}',
-                        style: theme.textTheme.bodySmall,
-                      )
-                      : null,
-              value: index,
-              groupValue: _selectedVersionIndex,
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onChanged: (value) {
-                setState(() => _selectedVersionIndex = value!);
-              },
-            );
-          }),
+          RadioGroup<int>(
+            groupValue: _selectedVersionIndex,
+            onChanged: (value) {
+              if (value != null) setState(() => _selectedVersionIndex = value);
+            },
+            child: Column(
+              children: [
+                ...List.generate(check.availableUpdates.length, (index) {
+                  final update = check.availableUpdates[index];
+                  return RadioListTile<int>(
+                    title: Text(
+                      '${update.label} (${update.version})',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    subtitle:
+                        update.buildTime != null
+                            ? Text(
+                              '构建时间: ${update.buildTime}',
+                              style: theme.textTheme.bodySmall,
+                            )
+                            : null,
+                    value: index,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  );
+                }),
+              ],
+            ),
+          ),
           const SizedBox(height: 8),
         ],
 
@@ -420,7 +428,9 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
                     Icon(Icons.new_releases, color: colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('${selectedVersion.label} ${selectedVersion.version}'),
+                      child: Text(
+                        '${selectedVersion.label} ${selectedVersion.version}',
+                      ),
                     ),
                   ],
                 ),
@@ -535,7 +545,9 @@ class _UpgradeDialogState extends ConsumerState<UpgradeDialog> {
 
   /// 打开 GitHub Release 下载页面
   Future<void> _launchReleaseUrl() async {
-    final releaseUrl = _checkResult?.releaseUrl ?? 'https://github.com/mimusic-org/mimusic/releases/latest';
+    final releaseUrl =
+        _checkResult?.releaseUrl ??
+        'https://github.com/mimusic-org/mimusic/releases/latest';
     final url = Uri.parse(releaseUrl);
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);

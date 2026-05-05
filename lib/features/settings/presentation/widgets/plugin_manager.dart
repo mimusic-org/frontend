@@ -1098,32 +1098,34 @@ class _PluginUpdateDialogState extends State<_PluginUpdateDialog> {
         children: [
           Text('GitHub 代理', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          // 预设代理选项
-          ...List.generate(_presetProxies.length, (index) {
-            final proxy = _presetProxies[index];
-            return RadioListTile<int>(
-              title: Text(proxy.label, style: theme.textTheme.bodyMedium),
-              value: index,
-              groupValue: _selectedProxyIndex,
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onChanged: (value) {
-                setState(() => _selectedProxyIndex = value!);
-              },
-            );
-          }),
-          // 自定义代理选项
-          RadioListTile<int>(
-            title: Text('自定义代理', style: theme.textTheme.bodyMedium),
-            value: -1,
+          // 预设代理选项 + 自定义代理选项
+          RadioGroup<int>(
             groupValue: _selectedProxyIndex,
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
             onChanged: (value) {
-              setState(() => _selectedProxyIndex = value!);
+              if (value != null) setState(() => _selectedProxyIndex = value);
             },
+            child: Column(
+              children: [
+                ...List.generate(_presetProxies.length, (index) {
+                  final proxy = _presetProxies[index];
+                  return RadioListTile<int>(
+                    title: Text(proxy.label, style: theme.textTheme.bodyMedium),
+                    value: index,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  );
+                }),
+                // 自定义代理选项
+                RadioListTile<int>(
+                  title: Text('自定义代理', style: theme.textTheme.bodyMedium),
+                  value: -1,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
           ),
           // 自定义代理输入框
           if (_selectedProxyIndex == -1)

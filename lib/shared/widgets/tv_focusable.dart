@@ -43,6 +43,9 @@ class TvFocusable extends StatefulWidget {
   /// 是否启用焦点
   final bool enabled;
 
+  /// 焦点变化回调
+  final ValueChanged<bool>? onFocusChange;
+
   const TvFocusable({
     super.key,
     required this.child,
@@ -56,6 +59,7 @@ class TvFocusable extends StatefulWidget {
     this.borderRadius = 12,
     this.animationDuration = TvTheme.focusAnimationDuration,
     this.enabled = true,
+    this.onFocusChange,
   });
 
   @override
@@ -128,16 +132,17 @@ class _TvFocusableState extends State<TvFocusable> {
         setState(() {
           _hasFocus = hasFocus;
         });
+        widget.onFocusChange?.call(hasFocus);
       },
       child: GestureDetector(
         onTap: widget.enabled ? widget.onSelect : null,
         child: AnimatedScale(
           scale: _hasFocus ? widget.focusedScale : 1.0,
           duration: widget.animationDuration,
-          curve: Curves.easeOutCubic,
+          curve: TvTheme.focusAnimationCurve,
           child: AnimatedContainer(
             duration: widget.animationDuration,
-            curve: Curves.easeOutCubic,
+            curve: TvTheme.focusAnimationCurve,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               border: _hasFocus
@@ -151,10 +156,17 @@ class _TvFocusableState extends State<TvFocusable> {
                     ),
               boxShadow: _hasFocus && widget.showShadow
                   ? [
+                      // 外层柔和光晕
                       BoxShadow(
                         color: focusBorderColor.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        spreadRadius: 2,
+                        blurRadius: TvTheme.focusShadowBlurRadius,
+                        spreadRadius: TvTheme.focusGlowSpreadRadius,
+                      ),
+                      // 内层锐利边框光
+                      BoxShadow(
+                        color: focusBorderColor.withValues(alpha: 0.6),
+                        blurRadius: 4,
+                        spreadRadius: 1,
                       ),
                     ]
                   : null,
@@ -175,7 +187,7 @@ class _TvFocusableState extends State<TvFocusable> {
 /// TV 焦点按钮
 /// 
 /// 专为 TV 设计的大尺寸按钮，支持 D-Pad 焦点导航
-class TvButton extends StatelessWidget {
+class TvButton extends StatefulWidget {
   /// 按钮文字
   final String? label;
   
@@ -213,37 +225,45 @@ class TvButton extends StatelessWidget {
   });
 
   @override
+  State<TvButton> createState() => _TvButtonState();
+}
+
+class _TvButtonState extends State<TvButton> {
+  bool _hasFocus = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final focusColor = _hasFocus ? theme.colorScheme.primary : null;
     
     Widget content;
     
-    if (icon != null && label != null) {
+    if (widget.icon != null && widget.label != null) {
       // 图标 + 文字
       content = Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: iconSize),
+          Icon(widget.icon, size: widget.iconSize, color: focusColor),
           const SizedBox(height: 4),
           Text(
-            label!,
-            style: TvTheme.buttonStyle(context),
+            widget.label!,
+            style: TvTheme.buttonStyle(context).copyWith(color: focusColor),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ],
       );
-    } else if (icon != null) {
+    } else if (widget.icon != null) {
       // 仅图标
-      content = Icon(icon, size: iconSize);
-    } else if (label != null) {
+      content = Icon(widget.icon, size: widget.iconSize, color: focusColor);
+    } else if (widget.label != null) {
       // 仅文字
       content = Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         child: Text(
-          label!,
-          style: TvTheme.buttonStyle(context),
+          widget.label!,
+          style: TvTheme.buttonStyle(context).copyWith(color: focusColor),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -253,15 +273,20 @@ class TvButton extends StatelessWidget {
     }
 
     return TvFocusable(
-      onSelect: enabled ? onPressed : null,
-      autofocus: autofocus,
-      focusNode: focusNode,
-      enabled: enabled,
+      onSelect: widget.enabled ? widget.onPressed : null,
+      autofocus: widget.autofocus,
+      focusNode: widget.focusNode,
+      enabled: widget.enabled,
       borderRadius: 16,
+      onFocusChange: (hasFocus) {
+        setState(() {
+          _hasFocus = hasFocus;
+        });
+      },
       child: Container(
         constraints: BoxConstraints(
-          minWidth: minSize,
-          minHeight: minSize,
+          minWidth: widget.minSize,
+          minHeight: widget.minSize,
         ),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
@@ -269,7 +294,7 @@ class TvButton extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: Opacity(
-          opacity: enabled ? 1.0 : 0.5,
+          opacity: widget.enabled ? 1.0 : 0.5,
           child: content,
         ),
       ),
@@ -280,7 +305,7 @@ class TvButton extends StatelessWidget {
 /// TV 图标按钮
 /// 
 /// 简化版的 TV 按钮，仅包含图标
-class TvIconButton extends StatelessWidget {
+class TvIconButton extends StatefulWidget {
   /// 按钮图标
   final IconData icon;
   
@@ -308,6 +333,9 @@ class TvIconButton extends StatelessWidget {
   /// 图标颜色
   final Color? iconColor;
 
+  /// 焦点变化回调
+  final ValueChanged<bool>? onFocusChange;
+
   const TvIconButton({
     super.key,
     required this.icon,
@@ -319,33 +347,180 @@ class TvIconButton extends StatelessWidget {
     this.enabled = true,
     this.backgroundColor,
     this.iconColor,
+    this.onFocusChange,
   });
+
+  @override
+  State<TvIconButton> createState() => _TvIconButtonState();
+}
+
+class _TvIconButtonState extends State<TvIconButton> {
+  bool _hasFocus = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final effectiveIconColor = _hasFocus
+        ? theme.colorScheme.primary
+        : (widget.iconColor ?? theme.colorScheme.onSurface);
     
     return TvFocusable(
-      onSelect: enabled ? onPressed : null,
-      autofocus: autofocus,
-      focusNode: focusNode,
-      enabled: enabled,
-      borderRadius: size / 2,
+      onSelect: widget.enabled ? widget.onPressed : null,
+      autofocus: widget.autofocus,
+      focusNode: widget.focusNode,
+      enabled: widget.enabled,
+      borderRadius: widget.size / 2,
+      onFocusChange: (hasFocus) {
+        setState(() {
+          _hasFocus = hasFocus;
+        });
+        widget.onFocusChange?.call(hasFocus);
+      },
       child: Container(
-        width: size,
-        height: size,
+        width: widget.size,
+        height: widget.size,
         decoration: BoxDecoration(
-          color: backgroundColor ?? theme.colorScheme.surfaceContainerHighest,
+          color: widget.backgroundColor ?? theme.colorScheme.surfaceContainerHighest,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
         child: Opacity(
-          opacity: enabled ? 1.0 : 0.5,
+          opacity: widget.enabled ? 1.0 : 0.5,
           child: Icon(
-            icon,
-            size: iconSize,
-            color: iconColor ?? theme.colorScheme.onSurface,
+            widget.icon,
+            size: widget.iconSize,
+            color: effectiveIconColor,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 为非按钮型容器元素（卡片、列表项）提供统一的 TV 焦点包装
+class TvFocusableContainer extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onSelect;
+  final bool autofocus;
+  final FocusNode? focusNode;
+  final ValueChanged<bool>? onFocusChange;
+  final BorderRadius? borderRadius;
+  final EdgeInsetsGeometry? padding;
+
+  const TvFocusableContainer({
+    super.key,
+    required this.child,
+    this.onSelect,
+    this.autofocus = false,
+    this.focusNode,
+    this.onFocusChange,
+    this.borderRadius,
+    this.padding,
+  });
+
+  @override
+  State<TvFocusableContainer> createState() => _TvFocusableContainerState();
+}
+
+class _TvFocusableContainerState extends State<TvFocusableContainer> {
+  late FocusNode _focusNode;
+  bool _hasFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
+  }
+
+  @override
+  void dispose() {
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(TvFocusableContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusNode != oldWidget.focusNode) {
+      if (oldWidget.focusNode == null) {
+        _focusNode.dispose();
+      }
+      _focusNode = widget.focusNode ?? FocusNode();
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (widget.onSelect == null) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+        event.logicalKey == LogicalKeyboardKey.space) {
+      widget.onSelect?.call();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderRadius = widget.borderRadius ?? BorderRadius.circular(12);
+
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: widget.autofocus,
+      onKeyEvent: _handleKeyEvent,
+      onFocusChange: (hasFocus) {
+        setState(() {
+          _hasFocus = hasFocus;
+        });
+        widget.onFocusChange?.call(hasFocus);
+      },
+      child: GestureDetector(
+        onTap: widget.onSelect,
+        child: AnimatedContainer(
+          duration: TvTheme.focusAnimationDuration,
+          curve: TvTheme.focusAnimationCurve,
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            color: _hasFocus
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.15)
+                : null,
+            border: Border.all(
+              color: _hasFocus
+                  ? theme.colorScheme.primary
+                  : Colors.transparent,
+              width: TvTheme.focusBorderWidth,
+            ),
+            boxShadow: _hasFocus
+                ? [
+                    // 外层柔和光晕
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      blurRadius: TvTheme.focusShadowBlurRadius,
+                      spreadRadius: TvTheme.focusGlowSpreadRadius,
+                    ),
+                    // 内层锐利边框光
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: widget.child,
         ),
       ),
     );

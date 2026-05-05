@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/responsive.dart';
 import '../../core/theme/tv_theme.dart';
@@ -249,76 +250,90 @@ class AdaptiveScaffold extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          // 顶部导航栏
-          Container(
-            height: TvTheme.navBarHeight,
-            padding: const EdgeInsets.symmetric(
-              horizontal: TvTheme.contentPadding,
-              vertical: TvTheme.spacingSmall,
-            ),
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(color: colorScheme.outlineVariant, width: 1),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final router = GoRouter.of(context);
+        if (router.canPop()) {
+          router.pop();
+        }
+        // 一级页面不做任何操作，防止退出应用
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            // 顶部导航栏
+            Container(
+              height: TvTheme.navBarHeight,
+              padding: const EdgeInsets.symmetric(
+                horizontal: TvTheme.contentPadding,
+                vertical: TvTheme.spacingSmall,
               ),
-            ),
-            child: Row(
-              children: [
-                // Logo 和标题
-                Icon(Icons.music_note, size: 40, color: colorScheme.primary),
-                const SizedBox(width: 16),
-                Text(
-                  'MiMusic',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: TvTheme.fontSizeTitle,
-                  ),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant, width: 1),
                 ),
-                const SizedBox(width: TvTheme.spacingXLarge),
-                // 导航按钮
-                Expanded(
-                  child: FocusTraversalGroup(
-                    child: Row(
-                      children:
-                          destinations.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final dest = entry.value;
-                            final isSelected = index == currentIndex;
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                right: TvTheme.spacingMedium,
-                              ),
-                              child: _TvNavButton(
-                                icon:
-                                    isSelected ? dest.selectedIcon : dest.icon,
-                                label: dest.label,
-                                isSelected: isSelected,
-                                onPressed: () => onDestinationSelected(index),
-                                autofocus: index == 0,
-                              ),
-                            );
-                          }).toList(),
+              ),
+              child: Row(
+                children: [
+                  // Logo 和标题
+                  Icon(Icons.music_note, size: 40, color: colorScheme.primary),
+                  const SizedBox(width: 16),
+                  Text(
+                    'MiMusic',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: TvTheme.fontSizeTitle,
                     ),
                   ),
+                  const SizedBox(width: TvTheme.spacingXLarge),
+                  // 导航按钮
+                  Expanded(
+                    child: FocusTraversalGroup(
+                      policy: OrderedTraversalPolicy(),
+                      child: Row(
+                        children:
+                            destinations.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final dest = entry.value;
+                              final isSelected = index == currentIndex;
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  right: TvTheme.spacingMedium,
+                                ),
+                                child: _TvNavButton(
+                                  icon:
+                                      isSelected ? dest.selectedIcon : dest.icon,
+                                  label: dest.label,
+                                  isSelected: isSelected,
+                                  onPressed: () => onDestinationSelected(index),
+                                  autofocus: index == 0,
+                                ),
+                              );
+                            }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 主内容区域
+            Expanded(
+              child: FocusTraversalGroup(
+                child: Row(
+                  children: [
+                    Expanded(child: body),
+                    if (playlistDrawer != null) playlistDrawer!,
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          // 主内容区域
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(child: body),
-                if (playlistDrawer != null) playlistDrawer!,
-              ],
-            ),
-          ),
-          // 底部播放器
-          if (bottomPlayer != null) bottomPlayer!,
-        ],
+            // 底部播放器
+            if (bottomPlayer != null) bottomPlayer!,
+          ],
+        ),
       ),
     );
   }
@@ -409,29 +424,59 @@ class _TvNavButtonState extends State<_TvNavButton> {
                         width: TvTheme.focusBorderWidth,
                       )
                       : null,
+              boxShadow: _hasFocus
+                  ? [
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: TvTheme.focusGlowOpacity),
+                        blurRadius: TvTheme.focusShadowBlurRadius,
+                        spreadRadius: TvTheme.focusGlowSpreadRadius,
+                      ),
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: 0.2),
+                        blurRadius: TvTheme.focusShadowBlurRadius * 2,
+                        spreadRadius: 0,
+                      ),
+                    ]
+                  : null,
             ),
-            child: Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  widget.icon,
-                  size: 28,
-                  color:
-                      widget.isSelected || _hasFocus
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.icon,
+                      size: 28,
+                      color:
+                          widget.isSelected || _hasFocus
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: TvTheme.spacingSmall),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: TvTheme.fontSizeButton,
+                        color:
+                            widget.isSelected || _hasFocus
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                        fontWeight:
+                            widget.isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: TvTheme.spacingSmall),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: TvTheme.fontSizeButton,
-                    color:
-                        widget.isSelected || _hasFocus
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                    fontWeight:
-                        widget.isSelected ? FontWeight.w600 : FontWeight.normal,
+                const SizedBox(height: 4),
+                // 选中指示条
+                AnimatedContainer(
+                  duration: TvTheme.focusAnimationDuration,
+                  height: widget.isSelected ? 3 : 0,
+                  width: 24,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius: BorderRadius.circular(1.5),
                   ),
                 ),
               ],

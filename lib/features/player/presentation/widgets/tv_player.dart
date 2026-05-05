@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/tv_theme.dart';
@@ -7,20 +8,35 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../shared/widgets/tv_focusable.dart';
 import '../../domain/player_state.dart';
 import '../providers/player_provider.dart';
+import 'lyrics_view.dart';
 
 /// TV 全屏播放器界面
 ///
 /// 专为 TV 端设计的播放器，特性：
-/// - 大尺寸封面图（300x300）
+/// - 左右分栏：左侧封面+歌曲信息，右侧歌词
+/// - 大尺寸封面图（360x360）
 /// - 大号字体（标题 24sp，艺术家 20sp）
 /// - 加粗进度条
 /// - 大按钮（最小 80x80），支持 D-Pad 焦点导航
 /// - 渐变背景
-class TvPlayer extends ConsumerWidget {
+class TvPlayer extends ConsumerStatefulWidget {
   const TvPlayer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TvPlayer> createState() => _TvPlayerState();
+}
+
+class _TvPlayerState extends ConsumerState<TvPlayer> {
+  final _playlistButtonFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _playlistButtonFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(playerStateProvider);
     final notifier = ref.read(playerStateProvider.notifier);
     final theme = Theme.of(context);
@@ -56,35 +72,48 @@ class TvPlayer extends ConsumerWidget {
               children: [
                 // 顶部工具栏
                 _buildTopBar(context, notifier),
-                // 主内容区域
+                // 主内容：左右分栏
                 Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: TvTheme.contentPaddingAll,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // 封面图
-                            _buildCoverArt(context, coverUrl),
-                            const SizedBox(height: TvTheme.spacingLarge),
-                            // 歌曲信息
-                            _buildSongInfo(context, state),
-                            const SizedBox(height: TvTheme.spacingXLarge),
-                            // 进度条
-                            _buildProgressBar(context, state, notifier),
-                            const SizedBox(height: TvTheme.spacingXLarge),
-                            // 播放控制按钮
-                            _buildPlayControls(context, state, notifier),
-                            const SizedBox(height: TvTheme.spacingLarge),
-                            // 附加控制
-                            _buildExtraControls(context, state, notifier),
-                          ],
+                  child: Row(
+                    children: [
+                      // 左侧：封面 + 歌曲信息
+                      Expanded(
+                        flex: 4,
+                        child: Center(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildCoverArt(context, coverUrl),
+                                const SizedBox(height: TvTheme.spacingLarge),
+                                _buildSongInfo(context, state),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      // 右侧：歌词
+                      Expanded(
+                        flex: 5,
+                        child: _buildLyricsArea(context, state, notifier),
+                      ),
+                    ],
                   ),
                 ),
+                // 进度条
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: TvTheme.contentPadding,
+                  ),
+                  child: _TvFocusableProgressBar(
+                    state: state,
+                    notifier: notifier,
+                  ),
+                ),
+                const SizedBox(height: TvTheme.spacingMedium),
+                // 播放控制 + 附加控制（合并为一行）
+                _buildControlsRow(context, state, notifier),
+                const SizedBox(height: TvTheme.spacingMedium),
               ],
             ),
           ),
@@ -95,8 +124,6 @@ class TvPlayer extends ConsumerWidget {
 
   /// 顶部工具栏
   Widget _buildTopBar(BuildContext context, PlayerNotifier notifier) {
-    final theme = Theme.of(context);
-
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: TvTheme.contentPadding,
@@ -104,22 +131,22 @@ class TvPlayer extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // 返回按钮
-          TvIconButton(
+          // 返回按钮（带标签）
+          _TvPlayerControlButton(
             icon: Icons.arrow_back_rounded,
+            label: '返回',
             onPressed: () {
               notifier.closeFullPlayer();
               Navigator.of(context).maybePop();
             },
             size: 56,
             iconSize: 28,
-            autofocus: false,
           ),
           const Spacer(),
           // 正在播放标题
           Text(
             '正在播放',
-            style: theme.textTheme.titleLarge?.copyWith(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontSize: TvTheme.fontSizeBody,
               fontWeight: FontWeight.w500,
             ),
@@ -137,8 +164,8 @@ class TvPlayer extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Container(
-      width: TvTheme.largeCoverSize,
-      height: TvTheme.largeCoverSize,
+      width: 360,
+      height: 360,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(TvTheme.cardRadius),
         color: theme.colorScheme.surfaceContainerHighest,
@@ -211,99 +238,140 @@ class TvPlayer extends ConsumerWidget {
     );
   }
 
-  /// 进度条
-  Widget _buildProgressBar(
+  /// 歌词区域
+  Widget _buildLyricsArea(
+    BuildContext context,
+    PlayerState state,
+    PlayerNotifier notifier,
+  ) {
+    if (!state.hasSong) {
+      return const SizedBox.shrink();
+    }
+    final song = state.currentSong!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: LyricsView(
+        lyricText: song.lyricSource == 'url' ? null : song.lyric,
+        lyricSource: song.lyricSource,
+        lyricUrl: song.lyricSource == 'url' ? song.lyric : null,
+        currentPosition: state.currentTime,
+        onSeek: notifier.seek,
+      ),
+    );
+  }
+
+  /// 播放控制 + 附加控制合并为一行
+  Widget _buildControlsRow(
     BuildContext context,
     PlayerState state,
     PlayerNotifier notifier,
   ) {
     final theme = Theme.of(context);
 
-    return SizedBox(
-      width: 600,
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: TvTheme.contentPadding),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 进度滑块
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 6, // 加粗进度条
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 10,
-                pressedElevation: 6,
-              ),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-              activeTrackColor: theme.colorScheme.primary,
-              inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
-              thumbColor: theme.colorScheme.primary,
-              overlayColor: theme.colorScheme.primary.withValues(alpha: 0.2),
-            ),
-            child: Slider(
-              value: state.progress,
-              onChanged: (value) {
-                final newPosition = Duration(
-                  milliseconds: (value * state.duration.inMilliseconds).round(),
-                );
-                notifier.seek(newPosition);
-              },
+          // 播放模式
+          Builder(
+            builder:
+                (buttonContext) => _TvPlayerControlButton(
+                  icon: _getPlayModeIcon(state.playMode),
+                  label: '播放模式',
+                  onPressed:
+                      () => _showPlayModeOverlay(
+                        buttonContext,
+                        notifier,
+                        state,
+                        theme,
+                      ),
+                  size: 64,
+                  iconSize: 28,
+                  iconColor:
+                      state.playMode != PlayMode.order
+                          ? theme.colorScheme.primary
+                          : null,
+                ),
+          ),
+          const SizedBox(width: TvTheme.spacingMedium),
+          // 音量减
+          _TvPlayerControlButton(
+            icon: Icons.volume_down_rounded,
+            label: '音量-',
+            onPressed: () {
+              final newVolume = (state.volume - 10).clamp(0.0, 100.0);
+              notifier.setVolume(newVolume);
+            },
+            size: 64,
+            iconSize: 28,
+          ),
+          const SizedBox(width: TvTheme.spacingSmall),
+          // 音量显示
+          SizedBox(
+            width: 60,
+            child: Text(
+              '${state.volume.round()}%',
+              style: TvTheme.bodyStyle(context),
+              textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: TvTheme.spacingSmall),
-          // 时间显示
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  Formatters.formatDuration(
-                    state.currentTime.inSeconds.toDouble(),
-                  ),
-                  style: TvTheme.captionStyle(context),
-                ),
-                Text(
-                  Formatters.formatDuration(
-                    state.duration.inSeconds.toDouble(),
-                  ),
-                  style: TvTheme.captionStyle(context),
-                ),
-              ],
-            ),
+          const SizedBox(width: TvTheme.spacingSmall),
+          // 音量加
+          _TvPlayerControlButton(
+            icon: Icons.volume_up_rounded,
+            label: '音量+',
+            onPressed: () {
+              final newVolume = (state.volume + 10).clamp(0.0, 100.0);
+              notifier.setVolume(newVolume);
+            },
+            size: 64,
+            iconSize: 28,
+          ),
+          const SizedBox(width: TvTheme.spacingLarge),
+          // 上一首
+          _TvPlayerControlButton(
+            icon: Icons.skip_previous_rounded,
+            label: '上一首',
+            onPressed: state.hasPrev ? notifier.playPrev : null,
+            size: TvTheme.minButtonSize,
+            iconSize: 40,
+            autofocus: true,
+          ),
+          const SizedBox(width: TvTheme.spacingMedium),
+          // 播放/暂停（主按钮）
+          _buildPlayPauseButton(context, state, notifier),
+          const SizedBox(width: TvTheme.spacingMedium),
+          // 下一首
+          _TvPlayerControlButton(
+            icon: Icons.skip_next_rounded,
+            label: '下一首',
+            onPressed: state.hasNext ? notifier.playNext : null,
+            size: TvTheme.minButtonSize,
+            iconSize: 40,
+          ),
+          const SizedBox(width: TvTheme.spacingLarge),
+          // 播放列表
+          _TvPlayerControlButton(
+            icon: Icons.queue_music_rounded,
+            label: '播放列表',
+            focusNode: _playlistButtonFocusNode,
+            onPressed: () {
+              final wasOpen = state.showPlaylistDrawer;
+              notifier.togglePlaylistDrawer();
+              if (wasOpen) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _playlistButtonFocusNode.requestFocus();
+                });
+              }
+            },
+            size: 64,
+            iconSize: 28,
+            iconColor:
+                state.showPlaylistDrawer ? theme.colorScheme.primary : null,
           ),
         ],
       ),
-    );
-  }
-
-  /// 播放控制按钮
-  Widget _buildPlayControls(
-    BuildContext context,
-    PlayerState state,
-    PlayerNotifier notifier,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // 上一首
-        TvIconButton(
-          icon: Icons.skip_previous_rounded,
-          onPressed: state.hasPrev ? notifier.playPrev : null,
-          enabled: state.hasPrev,
-          size: TvTheme.minButtonSize,
-          iconSize: 40,
-        ),
-        const SizedBox(width: TvTheme.spacingLarge),
-        // 播放/暂停（主按钮，更大）
-        _buildPlayPauseButton(context, state, notifier),
-        const SizedBox(width: TvTheme.spacingLarge),
-        // 下一首
-        TvIconButton(
-          icon: Icons.skip_next_rounded,
-          onPressed: state.hasNext ? notifier.playNext : null,
-          enabled: state.hasNext,
-          size: TvTheme.minButtonSize,
-          iconSize: 40,
-        ),
-      ],
     );
   }
 
@@ -316,117 +384,39 @@ class TvPlayer extends ConsumerWidget {
     final theme = Theme.of(context);
 
     if (state.isBuffering) {
-      return Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary,
-          shape: BoxShape.circle,
-        ),
-        child: const Padding(
-          padding: EdgeInsets.all(24),
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            '缓冲中',
+            style: TextStyle(
+              fontSize: TvTheme.fontSizeCaption,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
       );
     }
 
-    return TvFocusable(
-      onSelect: notifier.togglePlay,
-      autofocus: true,
-      borderRadius: 50,
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          size: 56,
-          color: theme.colorScheme.onPrimary,
-        ),
-      ),
-    );
-  }
-
-  /// 附加控制按钮
-  Widget _buildExtraControls(
-    BuildContext context,
-    PlayerState state,
-    PlayerNotifier notifier,
-  ) {
-    final theme = Theme.of(context);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // 播放模式
-        Builder(
-          builder:
-              (buttonContext) => TvIconButton(
-                icon: _getPlayModeIcon(state.playMode),
-                onPressed:
-                    () => _showPlayModeOverlay(
-                      buttonContext,
-                      notifier,
-                      state,
-                      theme,
-                    ),
-                size: 64,
-                iconSize: 28,
-                iconColor:
-                    state.playMode != PlayMode.order
-                        ? theme.colorScheme.primary
-                        : null,
-              ),
-        ),
-        const SizedBox(width: TvTheme.spacingMedium),
-        // 音量减
-        TvIconButton(
-          icon: Icons.volume_down_rounded,
-          onPressed: () {
-            final newVolume = (state.volume - 10).clamp(0.0, 100.0);
-            notifier.setVolume(newVolume);
-          },
-          size: 64,
-          iconSize: 28,
-        ),
-        const SizedBox(width: TvTheme.spacingSmall),
-        // 音量显示
-        SizedBox(
-          width: 60,
-          child: Text(
-            '${state.volume.round()}%',
-            style: TvTheme.bodyStyle(context),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(width: TvTheme.spacingSmall),
-        // 音量加
-        TvIconButton(
-          icon: Icons.volume_up_rounded,
-          onPressed: () {
-            final newVolume = (state.volume + 10).clamp(0.0, 100.0);
-            notifier.setVolume(newVolume);
-          },
-          size: 64,
-          iconSize: 28,
-        ),
-        const SizedBox(width: TvTheme.spacingMedium),
-        // 播放列表
-        TvIconButton(
-          icon: Icons.queue_music_rounded,
-          onPressed: notifier.togglePlaylistDrawer,
-          size: 64,
-          iconSize: 28,
-          iconColor:
-              state.showPlaylistDrawer ? theme.colorScheme.primary : null,
-        ),
-      ],
+    return _TvPlayPauseButton(
+      isPlaying: state.isPlaying,
+      onPressed: notifier.togglePlay,
     );
   }
 
@@ -491,6 +481,355 @@ class TvPlayer extends ConsumerWidget {
     );
 
     Overlay.of(context).insert(overlayEntry);
+  }
+}
+
+/// TV 播放器控制按钮（带焦点标签）
+class _TvPlayerControlButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool autofocus;
+  final FocusNode? focusNode;
+  final double size;
+  final double iconSize;
+  final Color? iconColor;
+
+  const _TvPlayerControlButton({
+    required this.icon,
+    required this.label,
+    this.onPressed,
+    this.autofocus = false,
+    this.focusNode,
+    this.size = TvTheme.minButtonSize,
+    this.iconSize = 32,
+    this.iconColor,
+  });
+
+  @override
+  State<_TvPlayerControlButton> createState() => _TvPlayerControlButtonState();
+}
+
+class _TvPlayerControlButtonState extends State<_TvPlayerControlButton> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 圆形发光容器 + TvIconButton
+        AnimatedContainer(
+          duration: TvTheme.focusAnimationDuration,
+          curve: TvTheme.focusAnimationCurve,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow:
+                _isFocused
+                    ? [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                        blurRadius: TvTheme.focusShadowBlurRadius,
+                        spreadRadius: TvTheme.focusGlowSpreadRadius,
+                      ),
+                    ]
+                    : null,
+          ),
+          child: TvIconButton(
+            icon: widget.icon,
+            onPressed: widget.onPressed,
+            autofocus: widget.autofocus,
+            focusNode: widget.focusNode,
+            size: widget.size,
+            iconSize: widget.iconSize,
+            enabled: widget.onPressed != null,
+            iconColor: widget.iconColor,
+            onFocusChange: (hasFocus) {
+              setState(() {
+                _isFocused = hasFocus;
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 焦点时淡入的标签
+        AnimatedOpacity(
+          opacity: _isFocused ? 1.0 : 0.0,
+          duration: TvTheme.focusAnimationDuration,
+          curve: TvTheme.focusAnimationCurve,
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: TvTheme.fontSizeCaption,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// TV 播放/暂停主按钮（增强焦点效果）
+class _TvPlayPauseButton extends StatefulWidget {
+  final bool isPlaying;
+  final VoidCallback onPressed;
+
+  const _TvPlayPauseButton({required this.isPlaying, required this.onPressed});
+
+  @override
+  State<_TvPlayPauseButton> createState() => _TvPlayPauseButtonState();
+}
+
+class _TvPlayPauseButtonState extends State<_TvPlayPauseButton> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: TvTheme.focusAnimationDuration,
+          curve: TvTheme.focusAnimationCurve,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow:
+                _isFocused
+                    ? [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                        blurRadius: 30,
+                        spreadRadius: 8,
+                      ),
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                    : null,
+          ),
+          child: TvFocusable(
+            onSelect: widget.onPressed,
+            autofocus: true,
+            borderRadius: 50,
+            focusedScale: TvTheme.focusedScaleLarge,
+            onFocusChange: (hasFocus) {
+              setState(() {
+                _isFocused = hasFocus;
+              });
+            },
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                widget.isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                size: 56,
+                color: theme.colorScheme.onPrimary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 焦点时淡入的标签
+        AnimatedOpacity(
+          opacity: _isFocused ? 1.0 : 0.0,
+          duration: TvTheme.focusAnimationDuration,
+          curve: TvTheme.focusAnimationCurve,
+          child: Text(
+            widget.isPlaying ? '暂停' : '播放',
+            style: TextStyle(
+              fontSize: TvTheme.fontSizeCaption,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// TV 可聚焦进度条（支持左右快进/快退）
+class _TvFocusableProgressBar extends StatefulWidget {
+  final PlayerState state;
+  final PlayerNotifier notifier;
+
+  const _TvFocusableProgressBar({required this.state, required this.notifier});
+
+  @override
+  State<_TvFocusableProgressBar> createState() =>
+      _TvFocusableProgressBarState();
+}
+
+class _TvFocusableProgressBarState extends State<_TvFocusableProgressBar> {
+  bool _isFocused = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      // 快退 10 秒
+      final newPosition = Duration(
+        milliseconds: (widget.state.currentTime.inMilliseconds - 10000).clamp(
+          0,
+          widget.state.duration.inMilliseconds,
+        ),
+      );
+      widget.notifier.seek(newPosition);
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      // 快进 10 秒
+      final newPosition = Duration(
+        milliseconds: (widget.state.currentTime.inMilliseconds + 10000).clamp(
+          0,
+          widget.state.duration.inMilliseconds,
+        ),
+      );
+      widget.notifier.seek(newPosition);
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final state = widget.state;
+
+    return Focus(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      onFocusChange: (hasFocus) {
+        setState(() {
+          _isFocused = hasFocus;
+        });
+      },
+      child: GestureDetector(
+        onTap: () => _focusNode.requestFocus(),
+        child: AnimatedContainer(
+          duration: TvTheme.focusAnimationDuration,
+          curve: TvTheme.focusAnimationCurve,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color:
+                  _isFocused ? theme.colorScheme.primary : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow:
+                _isFocused
+                    ? [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                    : null,
+          ),
+          child: Column(
+            children: [
+              // 焦点时显示快进/快退提示
+              AnimatedOpacity(
+                opacity: _isFocused ? 1.0 : 0.0,
+                duration: TvTheme.focusAnimationDuration,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '← → 快进/快退',
+                    style: TextStyle(
+                      fontSize: TvTheme.fontSizeCaption,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ),
+              ),
+              // 进度滑块
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: _isFocused ? 8 : 6,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 10,
+                    pressedElevation: 6,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 20,
+                  ),
+                  activeTrackColor: theme.colorScheme.primary,
+                  inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
+                  thumbColor: theme.colorScheme.primary,
+                  overlayColor: theme.colorScheme.primary.withValues(
+                    alpha: 0.2,
+                  ),
+                ),
+                child: Slider(
+                  value: state.progress,
+                  onChanged: (value) {
+                    final newPosition = Duration(
+                      milliseconds:
+                          (value * state.duration.inMilliseconds).round(),
+                    );
+                    widget.notifier.seek(newPosition);
+                  },
+                ),
+              ),
+              const SizedBox(height: TvTheme.spacingSmall),
+              // 时间显示
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      Formatters.formatDuration(
+                        state.currentTime.inSeconds.toDouble(),
+                      ),
+                      style: TvTheme.captionStyle(context).copyWith(
+                        fontWeight:
+                            _isFocused ? FontWeight.w600 : FontWeight.normal,
+                        color: _isFocused ? theme.colorScheme.primary : null,
+                      ),
+                    ),
+                    Text(
+                      Formatters.formatDuration(
+                        state.duration.inSeconds.toDouble(),
+                      ),
+                      style: TvTheme.captionStyle(context).copyWith(
+                        fontWeight:
+                            _isFocused ? FontWeight.w600 : FontWeight.normal,
+                        color: _isFocused ? theme.colorScheme.primary : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

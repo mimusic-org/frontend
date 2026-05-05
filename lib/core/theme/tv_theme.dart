@@ -31,10 +31,25 @@ class TvTheme {
   static const int gridColumns = 4;
   
   /// 焦点边框宽度
-  static const double focusBorderWidth = 3;
+  static const double focusBorderWidth = 4;
   
   /// 焦点缩放比例
   static const double focusScale = 1.05;
+  
+  /// 焦点缩放比例（大按钮用）
+  static const double focusedScaleLarge = 1.1;
+  
+  /// 焦点阴影模糊半径
+  static const double focusShadowBlurRadius = 20;
+  
+  /// 焦点光晕扩散半径
+  static const double focusGlowSpreadRadius = 4;
+  
+  /// 焦点光晕透明度
+  static const double focusGlowOpacity = 0.4;
+  
+  /// 焦点动画曲线
+  static const Curve focusAnimationCurve = Curves.easeOutCubic;
   
   /// 列表项最小高度
   static const double listItemMinHeight = 72;
