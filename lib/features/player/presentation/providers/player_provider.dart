@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as ja;
+import 'package:volume_controller/volume_controller.dart';
 
 import '../../../../config/app_config.dart';
 import '../../../../core/audio/audio_service.dart';
@@ -32,6 +33,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
   StreamSubscription<ja.PlayerState>? _playerStateSubscription;
+  StreamSubscription<double>? _systemVolumeSubscription;
 
   Timer? _sleepTimer;
   Timer? _sleepTimerCountdown;
@@ -64,6 +66,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       _positionSubscription?.cancel();
       _durationSubscription?.cancel();
       _playerStateSubscription?.cancel();
+      _systemVolumeSubscription?.cancel();
       _sleepTimer?.cancel();
       _sleepTimerCountdown?.cancel();
       _prefetchCancelToken?.cancel('disposed');
@@ -79,22 +82,27 @@ class PlayerNotifier extends Notifier<PlayerState> {
   Future<void> _loadPreferences() async {
     try {
       final prefs = await ref.read(appPreferencesProvider.future);
-      final volume = prefs.getVolume();
       final playModeString = prefs.getPlayMode();
       final playMode = PlayMode.fromString(playModeString);
 
-      debugPrint(
-        '[Player] Loaded preferences: volume=$volume, playMode=$playModeString',
-      );
+      debugPrint('[Player] Loaded preferences: playMode=$playModeString');
 
-      // 更新状态
-      state = state.copyWith(volume: volume, playMode: playMode);
+      // 更新播放模式
+      state = state.copyWith(playMode: playMode);
 
-      // 应用音量到音频播放器
-      await _audioHandler.setVolume(volume / 100);
+      // 加载系统音量（非 Web 平台）
+      if (!kIsWeb) {
+        VolumeController().showSystemUI = false;
+        final systemVolume = await VolumeController().getVolume();
+        state = state.copyWith(volume: (systemVolume * 100).clamp(0.0, 100.0));
+      }
+
+      // 固定 just_audio 播放器音量为最大
+      await _audioHandler.setVolume(1.0);
     } catch (e) {
       debugPrint('[Player] Failed to load preferences: $e');
-      // 加载失败使用默认值
+      // 加载失败使用默认值，仍然固定 just_audio 音量
+      await _audioHandler.setVolume(1.0);
     }
   }
 
@@ -126,6 +134,20 @@ class PlayerNotifier extends Notifier<PlayerState> {
       );
     });
     // 歌曲结束通过 _audioHandler.onSongCompleted 回调处理
+
+    // 监听系统音量变化（非 Web 平台）
+    if (!kIsWeb) {
+      _systemVolumeSubscription = VolumeController().listener((volume) {
+        // volume 是 0.0-1.0，转换为 0-100
+        final volumePercent = (volume * 100).clamp(0.0, 100.0);
+        if ((volumePercent - state.volume).abs() > 0.5) {
+          state = state.copyWith(
+            volume: volumePercent,
+            clearPreviousVolume: true,
+          );
+        }
+      });
+    }
   }
 
   /// 歌曲播放完成处理
@@ -383,15 +405,21 @@ class PlayerNotifier extends Notifier<PlayerState> {
   Future<void> setVolume(double volume) async {
     final clampedVolume = volume.clamp(0.0, 100.0);
     state = state.copyWith(volume: clampedVolume, clearPreviousVolume: true);
-    await _audioHandler.setVolume(clampedVolume / 100);
 
-    // 保存到本地存储
-    try {
-      final prefs = await ref.read(appPreferencesProvider.future);
-      await prefs.setVolume(clampedVolume);
-      debugPrint('[Player] Saved volume: $clampedVolume');
-    } catch (e) {
-      debugPrint('[Player] Failed to save volume: $e');
+    if (!kIsWeb) {
+      // 非 Web 平台：控制系统音量
+      try {
+        VolumeController().setVolume(clampedVolume / 100);
+        debugPrint('[Player] Set system volume: ${clampedVolume / 100}');
+      } catch (e) {
+        debugPrint('[Player] Failed to set system volume: $e');
+      }
+    } else {
+      // Web 平台降级：使用 just_audio 播放器音量
+      await _audioHandler.setVolume(clampedVolume / 100);
+      debugPrint(
+        '[Player] Set player volume (web fallback): ${clampedVolume / 100}',
+      );
     }
   }
 
@@ -922,8 +950,12 @@ class PlayerNotifier extends Notifier<PlayerState> {
         final token = await _secureStorage.getAccessToken();
         debugPrint('[Player] _playCurrent: calling audioHandler.playSong');
         await _audioHandler.playSong(song, token);
-        // 设置音量
-        await _audioHandler.setVolume(state.volume / 100);
+        // 固定 just_audio 播放器音量为最大（音量由系统控制）
+        if (kIsWeb) {
+          await _audioHandler.setVolume(state.volume / 100);
+        } else {
+          await _audioHandler.setVolume(1.0);
+        }
         debugPrint('[Player] _playCurrent: playback started successfully');
 
         // 播放成功 - 重置连续失败计数

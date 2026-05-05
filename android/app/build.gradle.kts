@@ -53,7 +53,7 @@ android {
     defaultConfig {
         applicationId = "com.mimusic.mimusic_flutter"
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion // Android Automotive 建议 API 28+，当前使用 Flutter 默认值(21)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

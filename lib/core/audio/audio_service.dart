@@ -117,6 +117,7 @@ class MiMusicAudioHandler extends BaseAudioHandler with SeekHandler {
         MediaAction.seek,
         MediaAction.seekForward,
         MediaAction.seekBackward,
+        MediaAction.stop,
       },
       androidCompactActionIndices: const [0, 1, 2],
       processingState:
