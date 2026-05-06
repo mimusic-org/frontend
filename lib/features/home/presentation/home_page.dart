@@ -21,12 +21,16 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlistsAsync = ref.watch(playlistListProvider(null));
+    final normalPlaylistsAsync = ref.watch(playlistListProvider('normal'));
+    final radioPlaylistsAsync = ref.watch(playlistListProvider('radio'));
     final pluginsAsync = ref.watch(pluginsProvider);
 
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(playlistListProvider(null));
+          ref.invalidate(playlistListProvider('normal'));
+          ref.invalidate(playlistListProvider('radio'));
         },
         child: CustomScrollView(
           slivers: [
@@ -67,6 +71,10 @@ class HomePage extends ConsumerWidget {
                       ref,
                       state.items,
                       pluginsAsync.value ?? [],
+                      normalTotalCount:
+                          normalPlaylistsAsync.value?.totalCount ?? 0,
+                      radioTotalCount:
+                          radioPlaylistsAsync.value?.totalCount ?? 0,
                     ),
                 loading: () => const _LoadingContent(),
                 error:
@@ -86,8 +94,10 @@ class HomePage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     List<Playlist> playlists,
-    List<Plugin> plugins,
-  ) {
+    List<Plugin> plugins, {
+    required int normalTotalCount,
+    required int radioTotalCount,
+  }) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -199,19 +209,19 @@ class HomePage extends ConsumerWidget {
                   _StatItem(
                     icon: Icons.queue_music,
                     label: '歌单',
-                    value: normalPlaylists.length.toString(),
+                    value: normalTotalCount.toString(),
                     color: colorScheme.primary,
                   ),
                   _StatItem(
                     icon: Icons.radio,
                     label: '电台',
-                    value: radioPlaylists.length.toString(),
+                    value: radioTotalCount.toString(),
                     color: colorScheme.secondary,
                   ),
                   _StatItem(
                     icon: Icons.library_music,
                     label: '总计',
-                    value: playlists.length.toString(),
+                    value: (normalTotalCount + radioTotalCount).toString(),
                     color: colorScheme.tertiary,
                   ),
                 ],

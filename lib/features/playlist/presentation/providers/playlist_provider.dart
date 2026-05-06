@@ -29,6 +29,9 @@ class PaginatedPlaylistsState {
   /// 已加载的全部歌单（按加载顺序拼接）
   final List<Playlist> items;
 
+  /// 后端返回的歌单总数
+  final int totalCount;
+
   /// 是否还有更多页可加载
   final bool hasMore;
 
@@ -40,6 +43,7 @@ class PaginatedPlaylistsState {
 
   const PaginatedPlaylistsState({
     this.items = const [],
+    this.totalCount = 0,
     this.hasMore = false,
     this.isLoadingMore = false,
     this.loadMoreError,
@@ -47,6 +51,7 @@ class PaginatedPlaylistsState {
 
   PaginatedPlaylistsState copyWith({
     List<Playlist>? items,
+    int? totalCount,
     bool? hasMore,
     bool? isLoadingMore,
     Object? loadMoreError,
@@ -54,6 +59,7 @@ class PaginatedPlaylistsState {
   }) {
     return PaginatedPlaylistsState(
       items: items ?? this.items,
+      totalCount: totalCount ?? this.totalCount,
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       loadMoreError: clearError ? null : (loadMoreError ?? this.loadMoreError),
@@ -125,6 +131,7 @@ class PaginatedPlaylistsNotifier
     );
     return PaginatedPlaylistsState(
       items: response.playlists,
+      totalCount: response.total,
       hasMore: response.playlists.length >= pageLimit,
       isLoadingMore: false,
     );
@@ -151,6 +158,7 @@ class PaginatedPlaylistsNotifier
       state = AsyncValue.data(
         current.copyWith(
           items: merged,
+          totalCount: response.total,
           hasMore: response.playlists.length >= pageLimit,
           isLoadingMore: false,
           clearError: true,

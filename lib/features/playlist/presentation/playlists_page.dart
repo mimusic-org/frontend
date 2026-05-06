@@ -136,6 +136,115 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
     });
   }
 
+  /// 自动按名称排序歌单
+  Future<void> _autoSortByName(
+    List<Playlist> playlists, {
+    bool ascending = true,
+  }) async {
+    // 排序需要全部歌单在内存中
+    await ref.read(playlistListProvider(null).notifier).loadAll();
+    if (!mounted) return;
+    final fullPlaylists =
+        ref.read(playlistListProvider(null)).value?.items ?? playlists;
+
+    final sorted = List<Playlist>.from(fullPlaylists);
+    sorted.sort((a, b) {
+      final result = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      return ascending ? result : -result;
+    });
+
+    final playlistIds = sorted.map((p) => p.id).toList();
+
+    // 检查排序前后是否有变化
+    final originalIds = fullPlaylists.map((p) => p.id).toList();
+    if (_listEquals(playlistIds, originalIds)) {
+      if (mounted) {
+        ResponsiveSnackBar.show(context, message: '歌单已是该排序顺序');
+      }
+      return;
+    }
+
+    final notifier = ref.read(playlistNotifierProvider.notifier);
+    final success = await notifier.reorderPlaylists(playlistIds);
+
+    if (mounted) {
+      if (success) {
+        ResponsiveSnackBar.showSuccess(
+          context,
+          message: ascending ? '已按名称升序排列' : '已按名称降序排列',
+        );
+      } else {
+        ResponsiveSnackBar.showError(context, message: '排序失败');
+      }
+    }
+  }
+
+  /// 提取名称中第一个出现的数字
+  int? _extractFirstNumber(String title) {
+    final match = RegExp(r'(\d+)').firstMatch(title);
+    if (match == null) return null;
+    return int.tryParse(match.group(1)!);
+  }
+
+  /// 自动按数字前缀排序歌单
+  Future<void> _autoSortByNumberPrefix(List<Playlist> playlists) async {
+    // 排序需要全部歌单在内存中
+    await ref.read(playlistListProvider(null).notifier).loadAll();
+    if (!mounted) return;
+    final fullPlaylists =
+        ref.read(playlistListProvider(null)).value?.items ?? playlists;
+
+    final sorted = List<Playlist>.from(fullPlaylists);
+    sorted.sort((a, b) {
+      final numA = _extractFirstNumber(a.name);
+      final numB = _extractFirstNumber(b.name);
+
+      // 都有数字前缀：按数值排序
+      if (numA != null && numB != null) {
+        final cmp = numA.compareTo(numB);
+        if (cmp != 0) return cmp;
+        // 数值相同时按名称字母序
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      }
+      // 有数字前缀的排在前面
+      if (numA != null) return -1;
+      if (numB != null) return 1;
+      // 都没有数字前缀：按名称字母序
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+    final playlistIds = sorted.map((p) => p.id).toList();
+
+    // 检查排序前后是否有变化
+    final originalIds = fullPlaylists.map((p) => p.id).toList();
+    if (_listEquals(playlistIds, originalIds)) {
+      if (mounted) {
+        ResponsiveSnackBar.show(context, message: '歌单已是该排序顺序');
+      }
+      return;
+    }
+
+    final notifier = ref.read(playlistNotifierProvider.notifier);
+    final success = await notifier.reorderPlaylists(playlistIds);
+
+    if (mounted) {
+      if (success) {
+        ResponsiveSnackBar.showSuccess(context, message: '已按数字前缀排序');
+      } else {
+        ResponsiveSnackBar.showError(context, message: '排序失败');
+      }
+    }
+  }
+
+  /// 比较两个整数列表是否相等
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   /// 拖拽排序回调
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
@@ -298,11 +407,61 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
             ref.read(playlistViewModeProvider.notifier).toggleViewMode();
           },
         ),
-        // 排序按钮
-        IconButton(
+        // 排序按钮（含自动排序选项）
+        PopupMenuButton<String>(
           icon: const Icon(Icons.sort),
           tooltip: '排序',
-          onPressed: () => _enterSortMode(playlists),
+          onSelected: (value) {
+            switch (value) {
+              case 'name_asc':
+                _autoSortByName(playlists, ascending: true);
+              case 'name_desc':
+                _autoSortByName(playlists, ascending: false);
+              case 'number_asc':
+                _autoSortByNumberPrefix(playlists);
+              case 'manual':
+                _enterSortMode(playlists);
+            }
+          },
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(
+                  value: 'name_asc',
+                  child: ListTile(
+                    leading: Icon(Icons.sort_by_alpha),
+                    title: Text('按名称排序 A→Z'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'name_desc',
+                  child: ListTile(
+                    leading: Icon(Icons.sort_by_alpha),
+                    title: Text('按名称排序 Z→A'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'number_asc',
+                  child: ListTile(
+                    leading: Icon(Icons.format_list_numbered),
+                    title: Text('按数字前缀排序'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'manual',
+                  child: ListTile(
+                    leading: Icon(Icons.drag_handle),
+                    title: Text('手动排序'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
         ),
         // 多选模式按钮
         IconButton(
