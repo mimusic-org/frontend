@@ -10,12 +10,10 @@ import '../../../core/theme/app_dimensions.dart';
 import '../../../shared/utils/responsive_snackbar.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import 'widgets/cache_manager.dart';
-import 'widgets/config_manager.dart';
 import 'widgets/plugin_manager.dart';
 import 'widgets/scan_manager.dart';
 import 'widgets/theme_selector.dart';
 import 'widgets/frontend_upgrade_dialog.dart';
-import 'widgets/token_manager.dart';
 import 'widgets/upgrade_dialog.dart';
 import 'providers/settings_provider.dart';
 
@@ -103,20 +101,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildSectionCard(
             title: '扩展',
             icon: Icons.extension_outlined,
-            children: [
-              const PluginManager(),
-              const Divider(height: 1),
-              const ConfigManager(),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // 分组5: 令牌管理
-          _buildSectionCard(
-            title: '安全',
-            icon: Icons.security_outlined,
-            children: [const TokenManager()],
+            children: [const PluginManager()],
           ),
 
           const SizedBox(height: 16),
@@ -136,8 +121,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             icon: Icons.settings_outlined,
             children: [
               _buildServerVersionTile(),
-              const Divider(height: 1),
-              _buildFrontendUpdateTile(),
+              if (!AppConfig.isEmbedded) ...[
+                const Divider(height: 1),
+                _buildFrontendUpdateTile(),
+              ],
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.info_outline),
