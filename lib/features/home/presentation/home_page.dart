@@ -12,6 +12,7 @@ import '../../settings/data/plugin_api.dart';
 import '../../settings/presentation/providers/settings_provider.dart';
 import 'widgets/playlist_carousel.dart';
 import 'widgets/plugin_grid.dart';
+import '../../../features/jsplugin/presentation/widgets/jsplugin_grid.dart';
 import '../../../shared/widgets/loading_indicator.dart';
 
 /// 首页
@@ -196,6 +197,10 @@ class HomePage extends ConsumerWidget {
           PluginGrid(plugins: activePlugins),
           const SizedBox(height: 32),
         ],
+
+        // JS 插件入口区域
+        const JSPluginGrid(),
+        const SizedBox(height: 32),
 
         // 统计信息
         Padding(

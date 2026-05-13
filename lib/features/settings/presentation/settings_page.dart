@@ -11,6 +11,7 @@ import '../../../shared/utils/responsive_snackbar.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import 'widgets/cache_manager.dart';
 import 'widgets/plugin_manager.dart';
+import '../../../features/jsplugin/presentation/widgets/jsplugin_manager.dart';
 import 'widgets/scan_manager.dart';
 import 'widgets/theme_selector.dart';
 import 'widgets/frontend_upgrade_dialog.dart';
@@ -101,7 +102,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildSectionCard(
             title: '扩展',
             icon: Icons.extension_outlined,
-            children: [const PluginManager()],
+            children: [const PluginManager(), const JSPluginManager()],
           ),
 
           const SizedBox(height: 16),
